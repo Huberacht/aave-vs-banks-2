@@ -91,10 +91,8 @@
       width:6px;
       background: linear-gradient(180deg, #fff, rgba(255,255,255,.5));
     }
-    /* Remove the left white strip for the Aave row only */
-    .aave-row.highlight::before{
-      display:none;
-    }
+    /* Remove the left accent only for the Aave row */
+    .aave-row.highlight::before{ display:none; }
 
     .rank-change{
       font-weight:800; font-size:14px;
@@ -106,34 +104,23 @@
     .up{ color: var(--up); }
     .down{ color: var(--down); }
 
-    .aave-row .logo {
-      display: inline-block;
-      width: 72px;
-      height: 72px;
-      margin-right: 0; /* no gap since no text */
-      vertical-align: middle;
-    }
-
     .loading {
       text-align: center;
       padding: 40px;
       opacity: 0.7;
     }
-
     .error {
       color: #ff6b6b;
       text-align: center;
       padding: 20px;
       font-size: 14px;
     }
-
     .last-updated {
       text-align: center;
       margin-top: 14px;
       font-size: 12px;
       opacity: 0.8;
     }
-
     .tagline{
       margin-top:20px;
       font-weight:700;
@@ -173,7 +160,7 @@
     </div>
 
     <div class="table-container">
-      <div id="loading" class="loading" role="status" aria-live="polite">Loading real-time banking data…</div>
+      <div id="loading" class="loading" role="status" aria-live="polite">Loading banking data…</div>
       <table id="dataTable" style="display:none;" aria-label="Aave vs Banks ranking">
         <thead>
           <tr>
@@ -184,7 +171,7 @@
         </thead>
         <tbody id="tableBody"></tbody>
       </table>
-      <div id="error" class="error" style="display:none;"></div>
+      <div id="info" class="error" style="display:none;"></div>
     </div>
 
     <div id="lastUpdated" class="last-updated" aria-live="polite"></div>
@@ -192,11 +179,11 @@
   </div>
 
   <script>
-    // ---------- Config & Cache Keys ----------
-    const CACHE_KEY = 'avb:payload:v1';     // bump version if structure changes
-    const CACHE_AT  = 'avb:updatedAt:v1';
+    // ---------------- Config & Cache Keys ----------------
+    const CACHE_KEY = 'avb:payload:v3';   // bump to invalidate any old/bad caches
+    const CACHE_AT  = 'avb:updatedAt:v3';
 
-    // ---------- Fallback dataset (subset shown to keep file size sane) ----------
+    // ---------------- Fallback dataset (your original list) ----------------
     const bankData = [
       { name: "JPMORGAN CHASE BK NA", assets: 3643.099 },
       { name: "BANK OF AMER NA", assets: 2615.296 },
@@ -225,20 +212,64 @@
       { name: "REGIONS BK", assets: 158.421 },
       { name: "DISCOVER BK", assets: 145.413 },
       { name: "SANTANDER BK NA", assets: 104.559 },
+      { name: "FLAGSTAR BK NA", assets: 97.568 },
+      { name: "CITY NB", assets: 93.149 },
+      { name: "ZIONS BC NA", assets: 87.992 },
+      { name: "WESTERN ALLI BK", assets: 82.944 },
+      { name: "FIRST HORIZON BK", assets: 81.202 },
+      { name: "WEBSTER BK NA", assets: 80.212 },
+      { name: "COMERICA BK", assets: 77.698 },
+      { name: "EAST WEST BK", assets: 75.712 },
+      { name: "UMB BK NA", assets: 69.014 },
+      { name: "SOUTHSTATE BK NA", assets: 65.109 },
+      { name: "VALLEY NB", assets: 61.818 },
+      { name: "CIBC BK USA", assets: 61.303 },
+      { name: "SYNOVUS BK", assets: 60.208 },
+      { name: "PINNACLE BK", assets: 54.173 },
+      { name: "OLD NB", assets: 53.574 },
+      { name: "FROST BK", assets: 52.059 },
+      { name: "UMPQUA BK", assets: 51.509 },
+      { name: "BOKF NA", assets: 50.345 },
+      { name: "FIRST NB OF PA", assets: 48.800 },
+      { name: "CADENCE BK", assets: 47.743 },
+      { name: "BARCLAYS BK DE", assets: 45.277 },
+      { name: "ASSOCIATED BK NA", assets: 43.249 },
+      { name: "RAYMOND JAMES BK", assets: 41.907 },
+      { name: "EVERBANK NA", assets: 41.858 },
+      { name: "DEUTSCHE BK TC AMERICAS", assets: 39.663 },
+      { name: "BANK OZK", assets: 39.165 },
+      { name: "PROSPERITY BK", assets: 38.764 },
+      { name: "BANKUNITED NA", assets: 34.811 },
+      { name: "HANCOCK WHITNEY BK", assets: 34.732 },
+      { name: "BANC OF CA", assets: 33.692 },
+      { name: "SOFI BK NA", assets: 32.857 },
+      { name: "UNITED BK", assets: 32.691 },
+      { name: "COMMERCE BK", assets: 32.239 },
+      { name: "FULTON BK NA", assets: 31.989 },
+      { name: "FIRST NB OF OMAHA", assets: 31.792 },
+      { name: "TEXAS CAP BK", assets: 31.103 },
+      { name: "BNY MELLON NA", assets: 30.061 },
+      { name: "FIRST INTRST BK", assets: 28.204 },
+      { name: "GLACIER BK", assets: 27.842 },
+      { name: "UNITED CMNTY BK", assets: 27.827 },
+      { name: "WASHINGTON FED BK", assets: 27.629 },
+      { name: "WESBANCO BK", assets: 27.321 },
+      { name: "CITY NB OF FL", assets: 27.175 },
+      { name: "ARVEST BK", assets: 27.136 },
+      { name: "FIRSTBANK", assets: 27.110 },
+      { name: "SIMMONS BK", assets: 26.749 },
       { name: "AMERIS BK", assets: 26.428 }
     ];
 
-    // ---------- Utilities ----------
+    // ---------------- Utilities ----------------
     function formatAssets(amount) {
       return `$${amount.toFixed(1)} B`;
     }
-
     function generateRankChange() {
       const up = Math.random() > 0.5;
-      const places = Math.floor(Math.random() * 4) + 1; // 1–4 places, purely decorative
+      const places = Math.floor(Math.random() * 4) + 1; // purely decorative
       return { direction: up ? 'up' : 'down', places, symbol: up ? '▲' : '▼' };
     }
-
     function setBadge(state, text){
       const badge = document.getElementById('statusBadge');
       const dot = badge.querySelector('.dot');
@@ -246,20 +277,27 @@
       dot.className = 'dot' + (state==='fresh' ? '' : state==='stale' ? ' stale' : ' error');
       label.textContent = text;
     }
-
     function setLastUpdated(dateMs, source){
       const el = document.getElementById('lastUpdated');
       const dt = new Date(dateMs);
-      el.textContent = `${source === 'cache' ? 'Showing cached data' : 'Showing fresh data'} — Last updated: ${dt.toLocaleString()}`;
+      el.textContent = `${source === 'cache' ? 'Showing cached data' : source==='fallback' ? 'Showing fallback data' : 'Showing fresh data'} — Last updated: ${dt.toLocaleString()}`;
     }
 
+    // ---------------- Cache helpers (with validation) ----------------
+    function isValidPayload(p){
+      if (!p || !Array.isArray(p.banks)) return false;
+      const enoughRows = p.banks.length >= 40;
+      const tvlOk = typeof p.aaveTVL === 'number' && p.aaveTVL > 1 && p.aaveTVL < 2000;
+      const rowsOK = p.banks.every(b => b && typeof b.name === 'string' && typeof b.assets === 'number');
+      return enoughRows && tvlOk && rowsOK;
+    }
     function saveCache(payload){
       try{
+        if (!isValidPayload(payload)) return;
         localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
         localStorage.setItem(CACHE_AT, String(Date.now()));
-      }catch(e){ /* storage may be full/blocked; ignore */ }
+      }catch(e){ /* ignore */ }
     }
-
     function readCache(){
       try{
         const raw = localStorage.getItem(CACHE_KEY);
@@ -267,35 +305,35 @@
         if(!raw || !at) return null;
         const payload = JSON.parse(raw);
         const updatedAt = Number(at);
-        if(!payload || !updatedAt) return null;
+        if(!isValidPayload(payload)) return null;
         return { payload, updatedAt };
       }catch(e){ return null; }
     }
 
-    // ---------- Data Fetchers ----------
+    // ---------------- Network helpers ----------------
     async function fetchWithTimeout(url, options = {}, timeoutMs = 15000){
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), timeoutMs);
       try{
-        const res = await fetch(url, { ...options, signal: controller.signal });
-        return res;
+        return await fetch(url, { ...options, signal: controller.signal });
       } finally {
         clearTimeout(id);
       }
     }
 
+    // ---------------- Data Fetchers ----------------
     async function fetchAaveTVL() {
       try {
         const res = await fetchWithTimeout('https://api.llama.fi/protocol/aave', { cache: 'no-store' }, 15000);
         if (!res.ok) throw new Error('Aave TVL fetch failed');
         const data = await res.json();
-        if (data && data.tvl && data.tvl.length > 0) {
+        if (data?.tvl?.length) {
           const latest = data.tvl[data.tvl.length - 1];
           const tvl = latest.totalLiquidityUSD ?? latest.totalLiquidityUsd ?? latest.totalLiquidity;
           if (typeof tvl === 'number') return tvl / 1_000_000_000; // → billions
         }
       } catch (e) {
-        console.error('Error fetching Aave data:', e);
+        console.error('Error fetching Aave TVL:', e);
       }
       return null;
     }
@@ -331,14 +369,16 @@
             }
           }
         }
-        return extractedBanks.sort((a,b)=>b.assets-a.assets).slice(0, 50);
-      } catch (error) {
-        console.error('Error fetching bank data:', error);
-        return bankData; // fallback
+        const banks = extractedBanks.sort((a,b)=>b.assets-a.assets).slice(0, 50);
+        if (banks.length >= 40) return { banks, ok: true };
+        return { banks: bankData, ok: false }; // not enough parsed → fallback
+      } catch (e) {
+        console.error('Error fetching bank data:', e);
+        return { banks: bankData, ok: false }; // network failure → fallback
       }
     }
 
-    // ---------- Rendering ----------
+    // ---------------- Rendering ----------------
     function renderTable(allBanks, aaveTVL) {
       const tableBody = document.getElementById('tableBody');
       tableBody.innerHTML = '';
@@ -361,13 +401,7 @@
         const row = document.createElement('tr');
         if (isAave) row.className = 'aave-row highlight';
 
-        const nameCellContent = isAave
-          ? `
-            <span class="logo" aria-hidden="true">
-              <img src="aave.svg" alt="Aave logo" style="width:150px; height:72px; vertical-align:middle;">
-            </span>
-          `
-          : item.name;
+        const nameCellContent = isAave ? `<strong>Aave</strong>` : item.name;
 
         row.innerHTML = `
           <td data-label="Rank">${actualRank}
@@ -382,30 +416,31 @@
       });
 
       const aaveRank = aaveIndex + 1;
-      const info = document.getElementById('error');
+      const info = document.getElementById('info');
       info.textContent = `Showing Aave (rank ${aaveRank}) with 4 banks above and 5 banks below. Total institutions: ${sortedData.length}`;
       info.style.display = 'block';
       info.style.color = '#ffffff';
       info.style.opacity = '0.8';
     }
 
-    // ---------- Orchestration (Stale-While-Revalidate) ----------
+    // ---------------- Orchestration (SWR) ----------------
     async function refreshData({silent=false} = {}){
       const refreshBtn = document.getElementById('refreshBtn');
       try{
         refreshBtn.disabled = true;
         if(!silent) setBadge('stale','Refreshing…');
 
-        const [banks, aaveTVL] = await Promise.all([fetchBankData(), fetchAaveTVL()]);
-        const allBanks = banks && banks.length > 20 ? banks : bankData;
-        const tvl = (typeof aaveTVL === 'number' ? aaveTVL : 12.5);
+        const [{banks, ok}, aaveTVLraw] = await Promise.all([fetchBankData(), fetchAaveTVL()]);
+        const aaveTVL = (typeof aaveTVLraw === 'number' ? aaveTVLraw : 12.5);
+        const allBanks = banks && banks.length ? banks : bankData;
 
-        renderTable(allBanks, tvl);
-        setBadge('fresh','Fresh');
-        setLastUpdated(Date.now(), 'live');
+        renderTable(allBanks, aaveTVL);
+        setBadge(ok ? 'fresh' : 'stale', ok ? 'Fresh' : 'Fallback');
+        setLastUpdated(Date.now(), ok ? 'live' : 'fallback');
 
-        // persist
-        saveCache({ banks: allBanks, aaveTVL: tvl });
+        // Save to cache only if live data was good
+        if (ok) saveCache({ banks: allBanks, aaveTVL });
+
         document.getElementById('loading').style.display = 'none';
         document.getElementById('dataTable').style.display = 'table';
       }catch(e){
@@ -417,26 +452,61 @@
     }
 
     function boot(){
-      // 1) Try cached payload → instant render (even if outdated)
+      // 1) Try cache → instant render (even if stale)
       const cached = readCache();
-      if(cached?.payload){
+      if (cached?.payload){
         const { banks, aaveTVL } = cached.payload;
-        renderTable(banks?.length ? banks : bankData, (typeof aaveTVL === 'number' ? aaveTVL : 12.5));
+        renderTable(banks, aaveTVL);
         document.getElementById('loading').style.display = 'none';
         document.getElementById('dataTable').style.display = 'table';
         setBadge('stale','Cached');
         setLastUpdated(cached.updatedAt, 'cache');
+        refreshData({silent:true}); // revalidate in background
       } else {
-        // No cache → show loader briefly, but still kick off render with fallbacks
-        setBadge('stale','Loading…');
+        // 2) No cache → render fallback immediately, then refresh
+        renderTable(bankData, 12.5);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('dataTable').style.display = 'table';
+        setBadge('stale','Fallback');
+        setLastUpdated(Date.now(), 'fallback');
+        refreshData({silent:true});
       }
 
-      // 2) Revalidate in the background and update UI when ready
-      refreshData({silent: !!cached});
-
-      // 3) Wire up manual refresh + interval
+      // 3) Controls
       document.getElementById('refreshBtn').addEventListener('click', () => refreshData());
       setInterval(() => refreshData({silent:true}), 5 * 60 * 1000);
+
+      // 4) Inline Service Worker for instant revisits/offline (optional, safe)
+      if ('serviceWorker' in navigator) {
+        const swCode = `
+          const STATIC_CACHE = 'avb-static-v1';
+          self.addEventListener('install', (e) => {
+            e.waitUntil(
+              caches.open(STATIC_CACHE).then(c => c.addAll([
+                self.registration.scope, // the HTML itself
+              ]))
+            );
+            self.skipWaiting();
+          });
+          self.addEventListener('activate', (e)=>e.waitUntil(self.clients.claim()));
+          self.addEventListener('fetch', (event) => {
+            const { request } = event;
+            // Cache-first for document; network for APIs
+            if (request.mode === 'navigate') {
+              event.respondWith(
+                caches.match(request).then(cached => cached || fetch(request).then(resp => {
+                  const copy = resp.clone();
+                  caches.open(STATIC_CACHE).then(c => c.put(request, copy));
+                  return resp;
+                }).catch(()=>cached))
+              );
+            }
+          });
+        `;
+        const blob = new Blob([swCode], { type: 'text/javascript' });
+        const swUrl = URL.createObjectURL(blob);
+        navigator.serviceWorker.register(swUrl).catch(console.error);
+      }
     }
 
     document.addEventListener('DOMContentLoaded', boot);
