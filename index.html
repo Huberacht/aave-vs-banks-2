@@ -17,131 +17,42 @@
       --badge-border: rgba(255,255,255,.25);
     }
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: Arial, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
-    .container{
-      max-width:1000px;
-      margin:0 auto;
-      padding:48px 20px 24px;
-    }
-    header h1{
-      font-size: clamp(32px, 5vw, 64px);
-      margin:0 0 10px;
-    }
-    header p{
-      margin:0 0 28px;
-      opacity:.95;
-      font-size: clamp(14px, 1.6vw, 18px);
-    }
+    body{ margin:0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
+    .container{ max-width:1000px; margin:0 auto; padding:48px 20px 24px; }
+    header h1{ font-size: clamp(32px, 5vw, 64px); margin:0 0 10px; }
+    header p{ margin:0 0 28px; opacity:.95; font-size: clamp(14px, 1.6vw, 18px); }
 
-    .controls{
-      display:flex; gap:12px; align-items:center; justify-content:flex-end; margin-bottom:12px;
-      flex-wrap:wrap;
-    }
-    .btn{
-      appearance:none; border:1px solid var(--badge-border); background:var(--badge);
-      color:var(--text); padding:10px 14px; border-radius:999px; cursor:pointer;
-      font-weight:700; letter-spacing:.02em;
-    }
+    .controls{ display:flex; gap:12px; align-items:center; justify-content:flex-end; margin-bottom:12px; flex-wrap:wrap; }
+    .btn{ appearance:none; border:1px solid var(--badge-border); background:var(--badge); color:var(--text); padding:10px 14px; border-radius:999px; cursor:pointer; font-weight:700; letter-spacing:.02em; }
     .btn[disabled]{ opacity:.6; cursor:not-allowed; }
-
-    .badge{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 12px; border-radius:999px; background:var(--badge);
-      border:1px solid var(--badge-border); font-size:12px;
-    }
+    .badge{ display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; background:var(--badge); border:1px solid var(--badge-border); font-size:12px; }
     .dot{ width:8px; height:8px; border-radius:50%; background:#9fdc9f; }
     .dot.stale{ background:#ffd27d; }
     .dot.error{ background:#ff9b9b; }
 
-    table{
-      width:100%;
-      border-collapse:separate;
-      border-spacing:0;
-      background: var(--card);
-      border-radius:18px;
-      overflow:hidden;
-    }
-    th, td{
-      padding:18px 20px;
-      text-align:left;
-      vertical-align:middle;
-    }
-    th{
-      font-size:14px;
-      letter-spacing:.06em;
-      text-transform:uppercase;
-      opacity:.85;
-      border-bottom:1px solid rgba(255,255,255,.16);
-    }
+    table{ width:100%; border-collapse:separate; border-spacing:0; background: var(--card); border-radius:18px; overflow:hidden; }
+    th, td{ padding:18px 20px; text-align:left; vertical-align:middle; }
+    th{ font-size:14px; letter-spacing:.06em; text-transform:uppercase; opacity:.85; border-bottom:1px solid rgba(255,255,255,.16); }
     tr:nth-child(even){ background: var(--card-2); }
 
-    .highlight{
-      position:relative;
-      background: var(--highlight) !important;
-      font-weight:700;
-    }
-    .highlight::before{
-      content:"";
-      position:absolute; inset:0 auto 0 0;
-      width:6px;
-      background: linear-gradient(180deg, #fff, rgba(255,255,255,.5));
-    }
-    /* Remove the left accent only for the Aave row */
+    .highlight{ position:relative; background: var(--highlight) !important; font-weight:700; }
+    .highlight::before{ content:""; position:absolute; inset:0 auto 0 0; width:6px; background: linear-gradient(180deg, #fff, rgba(255,255,255,.5)); }
     .aave-row.highlight::before{ display:none; }
 
-    .rank-change{
-      font-weight:800; font-size:14px;
-      padding:4px 8px; border-radius:999px;
-      background: rgba(255,255,255,.12);
-      border:1px solid rgba(255,255,255,.22);
-      margin-left:8px;
-    }
-    .up{ color: var(--up); }
-    .down{ color: var(--down); }
+    .rank-change{ font-weight:800; font-size:14px; padding:4px 8px; border-radius:999px; background: rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.22); margin-left:8px; }
+    .up{ color: var(--up); } .down{ color: var(--down); }
 
-    .loading {
-      text-align: center;
-      padding: 40px;
-      opacity: 0.7;
-    }
-    .error {
-      color: #ff6b6b;
-      text-align: center;
-      padding: 20px;
-      font-size: 14px;
-    }
-    .last-updated {
-      text-align: center;
-      margin-top: 14px;
-      font-size: 12px;
-      opacity: 0.8;
-    }
-    .tagline{
-      margin-top:20px;
-      font-weight:700;
-      letter-spacing:.02em;
-      text-align: center;
-    }
+    .loading { text-align: center; padding: 40px; opacity: 0.7; }
+    .error { color: #ff6b6b; text-align: center; padding: 20px; font-size: 14px; }
+    .last-updated { text-align: center; margin-top: 14px; font-size: 12px; opacity: 0.8; }
+    .tagline{ margin-top:20px; font-weight:700; letter-spacing:.02em; text-align: center; }
 
     @media (max-width: 720px){
       thead{ display:none; }
       table, tbody, tr, td{ display:block; width:100%; }
       tr{ padding:12px 14px; }
-      td{
-        padding:8px 6px 8px 120px;
-        position:relative;
-        border-bottom:1px dashed rgba(255,255,255,.18);
-      }
-      td::before{
-        content: attr(data-label);
-        position:absolute; left:14px; top:8px;
-        font-weight:700; opacity:.9;
-      }
+      td{ padding:8px 6px 8px 120px; position:relative; border-bottom:1px dashed rgba(255,255,255,.18); }
+      td::before{ content: attr(data-label); position:absolute; left:14px; top:8px; font-weight:700; opacity:.9; }
       .highlight::before{ width:4px; }
       .controls{ justify-content:space-between; }
     }
@@ -163,11 +74,7 @@
       <div id="loading" class="loading" role="status" aria-live="polite">Loading banking data…</div>
       <table id="dataTable" style="display:none;" aria-label="Aave vs Banks ranking">
         <thead>
-          <tr>
-            <th scope="col">Rank</th>
-            <th scope="col">Name</th>
-            <th scope="col">Assets</th>
-          </tr>
+          <tr><th scope="col">Rank</th><th scope="col">Name</th><th scope="col">Assets</th></tr>
         </thead>
         <tbody id="tableBody"></tbody>
       </table>
@@ -180,10 +87,14 @@
 
   <script>
     // ---------------- Config & Cache Keys ----------------
-    const CACHE_KEY = 'avb:payload:v3';   // bump to invalidate any old/bad caches
-    const CACHE_AT  = 'avb:updatedAt:v3';
+    const CACHE_KEY = 'avb:payload:v4';   // bump to invalidate any old fallback
+    const CACHE_AT  = 'avb:updatedAt:v4';
+    const DEFAULT_AAVE_TVL_B = 40.0;      // <— requested fallback TVL (billions)
 
-    // ---------------- Fallback dataset (your original list) ----------------
+    // Keep a last-known-good snapshot we can use when APIs fail
+    let LAST_KNOWN = { aaveTVL: DEFAULT_AAVE_TVL_B, banks: null, updatedAt: null };
+
+    // ---------------- Fallback dataset (original long list) ----------------
     const bankData = [
       { name: "JPMORGAN CHASE BK NA", assets: 3643.099 },
       { name: "BANK OF AMER NA", assets: 2615.296 },
@@ -262,14 +173,8 @@
     ];
 
     // ---------------- Utilities ----------------
-    function formatAssets(amount) {
-      return `$${amount.toFixed(1)} B`;
-    }
-    function generateRankChange() {
-      const up = Math.random() > 0.5;
-      const places = Math.floor(Math.random() * 4) + 1; // purely decorative
-      return { direction: up ? 'up' : 'down', places, symbol: up ? '▲' : '▼' };
-    }
+    const formatAssets = (amount) => `$${amount.toFixed(1)} B`;
+    function generateRankChange(){ const up=Math.random()>0.5; const places=Math.floor(Math.random()*4)+1; return {direction: up?'up':'down', places, symbol: up?'▲':'▼'}; }
     function setBadge(state, text){
       const badge = document.getElementById('statusBadge');
       const dot = badge.querySelector('.dot');
@@ -296,6 +201,7 @@
         if (!isValidPayload(payload)) return;
         localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
         localStorage.setItem(CACHE_AT, String(Date.now()));
+        LAST_KNOWN = { aaveTVL: payload.aaveTVL, banks: payload.banks, updatedAt: Date.now() };
       }catch(e){ /* ignore */ }
     }
     function readCache(){
@@ -314,11 +220,8 @@
     async function fetchWithTimeout(url, options = {}, timeoutMs = 15000){
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), timeoutMs);
-      try{
-        return await fetch(url, { ...options, signal: controller.signal });
-      } finally {
-        clearTimeout(id);
-      }
+      try{ return await fetch(url, { ...options, signal: controller.signal }); }
+      finally{ clearTimeout(id); }
     }
 
     // ---------------- Data Fetchers ----------------
@@ -330,12 +233,12 @@
         if (data?.tvl?.length) {
           const latest = data.tvl[data.tvl.length - 1];
           const tvl = latest.totalLiquidityUSD ?? latest.totalLiquidityUsd ?? latest.totalLiquidity;
-          if (typeof tvl === 'number') return tvl / 1_000_000_000; // → billions
+          if (typeof tvl === 'number') return tvl / 1_000_000_000; // billions
         }
       } catch (e) {
         console.error('Error fetching Aave TVL:', e);
       }
-      return null;
+      return null; // let caller fall back to LAST_KNOWN or DEFAULT
     }
 
     async function fetchBankData() {
@@ -361,10 +264,7 @@
             if ((bankName.includes('BK') || bankName.includes('BANK')) && assets) {
               const assetsNum = parseFloat(assets.replace(/[^0-9.]/g, ''));
               if (!isNaN(assetsNum) && assetsNum > 100) {
-                extractedBanks.push({
-                  name: bankName.split('/')[0].trim(),
-                  assets: assetsNum / 1000 // millions → billions
-                });
+                extractedBanks.push({ name: bankName.split('/')[0].trim(), assets: assetsNum / 1000 });
               }
             }
           }
@@ -379,13 +279,11 @@
     }
 
     // ---------------- Rendering ----------------
-    function renderTable(allBanks, aaveTVL) {
+    function renderTable(allBanks, aaveTVLNum) {
       const tableBody = document.getElementById('tableBody');
       tableBody.innerHTML = '';
 
-      const combinedData = [...allBanks];
-      combinedData.push({ name: "Aave", assets: aaveTVL ?? 12.5, isAave: true });
-
+      const combinedData = [...allBanks, { name: "Aave", assets: aaveTVLNum, isAave: true }];
       const sortedData = combinedData.sort((a, b) => b.assets - a.assets);
       const aaveIndex = sortedData.findIndex(item => item.isAave);
 
@@ -401,15 +299,13 @@
         const row = document.createElement('tr');
         if (isAave) row.className = 'aave-row highlight';
 
-        const nameCellContent = isAave ? `<strong>Aave</strong>` : item.name;
-
         row.innerHTML = `
           <td data-label="Rank">${actualRank}
             <span class="rank-change ${change.direction}" aria-label="rank change ${change.direction} by ${change.places}">
               ${change.symbol} ${change.places}
             </span>
           </td>
-          <td data-label="Name">${nameCellContent}</td>
+          <td data-label="Name">${isAave ? '<strong>Aave</strong>' : item.name}</td>
           <td data-label="Assets">${formatAssets(item.assets)}</td>
         `;
         tableBody.appendChild(row);
@@ -431,16 +327,17 @@
         if(!silent) setBadge('stale','Refreshing…');
 
         const [{banks, ok}, aaveTVLraw] = await Promise.all([fetchBankData(), fetchAaveTVL()]);
-        const aaveTVL = (typeof aaveTVLraw === 'number' ? aaveTVLraw : 12.5);
-        const allBanks = banks && banks.length ? banks : bankData;
+        const aaveTVL = (typeof aaveTVLraw === 'number')
+          ? aaveTVLraw
+          : (LAST_KNOWN.aaveTVL ?? DEFAULT_AAVE_TVL_B); // prefer last known over hard default
+
+        const allBanks = banks && banks.length ? banks : (LAST_KNOWN.banks ?? bankData);
 
         renderTable(allBanks, aaveTVL);
         setBadge(ok ? 'fresh' : 'stale', ok ? 'Fresh' : 'Fallback');
         setLastUpdated(Date.now(), ok ? 'live' : 'fallback');
 
-        // Save to cache only if live data was good
         if (ok) saveCache({ banks: allBanks, aaveTVL });
-
         document.getElementById('loading').style.display = 'none';
         document.getElementById('dataTable').style.display = 'table';
       }catch(e){
@@ -452,64 +349,32 @@
     }
 
     function boot(){
-      // 1) Try cache → instant render (even if stale)
       const cached = readCache();
       if (cached?.payload){
         const { banks, aaveTVL } = cached.payload;
+        LAST_KNOWN = { aaveTVL, banks, updatedAt: cached.updatedAt };
         renderTable(banks, aaveTVL);
         document.getElementById('loading').style.display = 'none';
         document.getElementById('dataTable').style.display = 'table';
         setBadge('stale','Cached');
         setLastUpdated(cached.updatedAt, 'cache');
-        refreshData({silent:true}); // revalidate in background
+        refreshData({silent:true});
       } else {
-        // 2) No cache → render fallback immediately, then refresh
-        renderTable(bankData, 12.5);
+        LAST_KNOWN = { aaveTVL: DEFAULT_AAVE_TVL_B, banks: bankData, updatedAt: Date.now() };
+        renderTable(bankData, DEFAULT_AAVE_TVL_B);
         document.getElementById('loading').style.display = 'none';
         document.getElementById('dataTable').style.display = 'table';
         setBadge('stale','Fallback');
-        setLastUpdated(Date.now(), 'fallback');
+        setLastUpdated(LAST_KNOWN.updatedAt, 'fallback');
         refreshData({silent:true});
       }
 
-      // 3) Controls
       document.getElementById('refreshBtn').addEventListener('click', () => refreshData());
       setInterval(() => refreshData({silent:true}), 5 * 60 * 1000);
 
-      // 4) Inline Service Worker for instant revisits/offline (optional, safe)
+      // Tiny SW for instant revisits (safe)
       if ('serviceWorker' in navigator) {
         const swCode = `
           const STATIC_CACHE = 'avb-static-v1';
           self.addEventListener('install', (e) => {
-            e.waitUntil(
-              caches.open(STATIC_CACHE).then(c => c.addAll([
-                self.registration.scope, // the HTML itself
-              ]))
-            );
-            self.skipWaiting();
-          });
-          self.addEventListener('activate', (e)=>e.waitUntil(self.clients.claim()));
-          self.addEventListener('fetch', (event) => {
-            const { request } = event;
-            // Cache-first for document; network for APIs
-            if (request.mode === 'navigate') {
-              event.respondWith(
-                caches.match(request).then(cached => cached || fetch(request).then(resp => {
-                  const copy = resp.clone();
-                  caches.open(STATIC_CACHE).then(c => c.put(request, copy));
-                  return resp;
-                }).catch(()=>cached))
-              );
-            }
-          });
-        `;
-        const blob = new Blob([swCode], { type: 'text/javascript' });
-        const swUrl = URL.createObjectURL(blob);
-        navigator.serviceWorker.register(swUrl).catch(console.error);
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', boot);
-  </script>
-</body>
-</html>
+            e.waitUntil(caches.open(STATIC_CAC_
