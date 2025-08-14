@@ -30,20 +30,15 @@
     .highlight::before{content:"";position:absolute;inset:0 auto 0 0;width:6px;background: linear-gradient(180deg, #fff, rgba(255,255,255,.5));}
     .aave-row.highlight::before{display:none;} 
 
-    /* Removed the per-row rank-change chips. Keep the utility classes in case. */
+    /* No per-row rank-change chips */
     .rank-change{display:none}
-    .up{color: var(--up);} .down{color: var(--down);} 
 
-    /* Bigger, high-contrast Aave-only moving arrow */
-    .aave-badge{display:inline-flex;align-items:center;gap:10px;padding:8px 14px;border-radius:999px;background: rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);backdrop-filter: blur(4px);}
-    .aave-arrow{display:inline-block;font-size: clamp(28px, 6vw, 56px);line-height:1;padding:6px 14px;border-radius:999px;background: rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.35);box-shadow: 0 6px 18px rgba(0,0,0,.25), inset 0 0 22px rgba(255,255,255,.15);}    
-    .aave-row{position:relative;background: linear-gradient(90deg, rgba(255,255,255,.16), rgba(255,255,255,.08)) !important;}
-    .aave-row .logo{display:inline-block;width:72px;height:72px;margin-right:6px;vertical-align:middle;}
-
-    /* Motion: subtle slide + pulse so it’s visible on all screens */
-    @keyframes aaveSlide { 0% { transform: translateX(0); } 50% { transform: translateX(8px); } 100% { transform: translateX(0); } }
-    @keyframes aavePulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.45); } 70% { box-shadow: 0 0 0 14px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
-    .aave-arrow{animation: aaveSlide 1.4s ease-in-out infinite, aavePulse 2.2s ease-out infinite;}
+    /* Aave-only visual treatment (smaller, fits row) */
+    .aave-row{position:relative;background: linear-gradient(90deg, rgba(255,255,255,.10), rgba(255,255,255,.06)) !important;}
+    .aave-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background: rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);backdrop-filter: blur(2px); font-weight:700;}
+    .aave-arrow{display:inline-block;font-size: clamp(16px, 3.2vw, 28px);line-height:1;padding:2px 8px;border-radius:999px;background: rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.28);box-shadow: inset 0 0 10px rgba(255,255,255,.12);}
+    @keyframes aaveSlide { 0% { transform: translateX(0); } 50% { transform: translateX(4px); } 100% { transform: translateX(0); } }
+    .aave-arrow{animation: aaveSlide 1.6s ease-in-out infinite;}
 
     .loading{text-align:center;padding:40px;opacity:0.7;} 
     .error{color:#ffedee;text-align:center;padding:20px;font-size:14px;} 
@@ -58,7 +53,7 @@
       td{padding:8px 6px 8px 120px;position:relative;border-bottom:1px dashed rgba(255,255,255,.18);} 
       td::before{content: attr(data-label);position:absolute;left:14px;top:8px;font-weight:700;opacity:.9;} 
       .highlight::before{width:4px;}
-      .aave-arrow{font-size:48px;}
+      .aave-arrow{font-size:22px;}
     }
   </style>
 </head>
@@ -176,24 +171,14 @@
 
     function formatAssets(amount) { return `$${amount.toFixed(1)} B`; }
 
-    function generateRankChange() {
-      // kept for potential future use; we no longer show for non-Aave rows
-      const up = Math.random() > 0.5;
-      const places = Math.floor(Math.random() * 4) + 1;
-      return { direction: up ? 'up' : 'down', places, symbol: up ? '▲' : '▼' };
-    }
-
     // Helper to get the latest numeric value from various shapes
     function latestNumberFrom(arr, preferKeys = []){
       if (!arr || !Array.isArray(arr) || arr.length === 0) return null;
       const latest = arr[arr.length - 1];
       if (typeof latest === 'number') return latest;
       if (latest && typeof latest === 'object'){
-        for (const k of preferKeys){
-          if (typeof latest[k] === 'number') return latest[k];
-        }
-        // common shapes { date, totalLiquidityUSD } or { total }
-        for (const v of Object.values(latest)){
+        for (const k of preferKeys){ if (typeof latest[k] === 'number') return latest[k]; }
+        for (const [,v] of Object.entries(latest)){
           if (typeof v === 'number') return v;
         }
       }
@@ -207,19 +192,22 @@
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
 
-        // Try top-level aggregates first
-        let tvlUsd = latestNumberFrom(data.tvl, ['totalLiquidityUSD','totalLiquidityUsd','totalLiquidity']);
-        let borrowedUsd = latestNumberFrom(data.borrowed, ['totalBorrowedUSD','totalBorrowedUsd','borrowed','totalBorrows']);
+        let tvlUsd = null, borrowedUsd = null;
 
-        // Fallback: sum across chains if needed
+        // Try top-level arrays
+        if (Array.isArray(data.tvl)) tvlUsd = latestNumberFrom(data.tvl, ['totalLiquidityUSD','totalLiquidityUsd','tvl']);
+        if (Array.isArray(data.borrowed)) borrowedUsd = latestNumberFrom(data.borrowed, ['borrowed','totalBorrowedUSD','totalBorrowedUsd','totalBorrows']);
+        if (Array.isArray(data.borrows)) borrowedUsd = borrowedUsd ?? latestNumberFrom(data.borrows, ['borrowed','totalBorrowedUSD','totalBorrowedUsd','totalBorrows']);
+
+        // Fallback: sum across chains when present
         if ((tvlUsd == null || borrowedUsd == null) && data.chainTvls && typeof data.chainTvls === 'object'){
           let tvlSum = 0, tvlFound = false;
           let borrowedSum = 0, borrowedFound = false;
           for (const chain of Object.values(data.chainTvls)){
             if (!chain || typeof chain !== 'object') continue;
-            const cTVL = latestNumberFrom(chain.tvl);
+            const cTVL = latestNumberFrom(chain.tvl, ['tvl','totalLiquidityUSD','totalLiquidityUsd']);
             if (typeof cTVL === 'number'){ tvlSum += cTVL; tvlFound = true; }
-            const cBor = latestNumberFrom(chain.borrowed);
+            const cBor = latestNumberFrom(chain.borrowed || chain.borrows, ['borrowed','totalBorrowedUSD','totalBorrowedUsd','totalBorrows']);
             if (typeof cBor === 'number'){ borrowedSum += cBor; borrowedFound = true; }
           }
           if (tvlUsd == null && tvlFound) tvlUsd = tvlSum;
@@ -290,7 +278,6 @@
              <span class="aave-badge"><span class="aave-arrow" aria-hidden="true">➜</span> Aave (TVL + Borrowed)</span>`
           : item.name;
 
-        // Only show moving arrow on Aave row; remove rank-change components elsewhere
         row.innerHTML = `
           <td data-label="Rank">${actualRank}</td>
           <td data-label="Name">${nameCellContent}</td>
