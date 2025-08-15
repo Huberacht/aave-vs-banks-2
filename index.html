@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Aave vs Banks — full bank list + chart</title>
+  <title>Aave vs Banks — full bank list + chart + KPIs</title>
   <style>
     :root{
       --bg:#9C8CF4;
@@ -17,7 +17,6 @@
       --grid: rgba(255,255,255,.18);
       --tooltipBg: rgba(15, 10, 30, .92);
       --tooltipBorder: rgba(255,255,255,.25);
-      --stroke: rgba(0,0,0,.15);
     }
     *{ box-sizing:border-box }
     body{ margin:0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
@@ -42,29 +41,85 @@
       opacity:.95;
     }
 
-    /* Chart on top (moved above buttons) */
+    /* Chart */
     .chart-wrap{ width:100%; position:relative; }
     canvas{ width:100%; height:260px; display:block; }
 
     /* Tooltip */
     .tooltip{
-      position:absolute;
-      pointer-events:none;
-      background: var(--tooltipBg);
-      color:#fff;
-      border:1px solid var(--tooltipBorder);
-      border-radius:10px;
-      padding:8px 10px;
-      font-size:12px;
-      box-shadow:0 8px 24px rgba(0,0,0,.25);
-      transform: translate(-50%, -110%);
-      white-space:nowrap;
-      display:none;
-      z-index:2;
+      position:absolute; pointer-events:none;
+      background: var(--tooltipBg); color:#fff;
+      border:1px solid var(--tooltipBorder); border-radius:10px;
+      padding:8px 10px; font-size:12px; box-shadow:0 8px 24px rgba(0,0,0,.25);
+      transform: translate(-50%, -110%); white-space:nowrap; display:none; z-index:2;
     }
     .tooltip .muted{ opacity:.8; }
 
-    /* Buttons section moved below chart, tighter gap */
+    /* KPI row under chart */
+    .kpis{ display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin:12px 0 6px; }
+    .kpi{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      background:var(--card); border:1px solid rgba(255,255,255,.22);
+      border-radius:16px; padding:14px 16px;
+    }
+    .kpi .label{
+      font-size:12px; text-transform:uppercase; letter-spacing:.08em; opacity:.9;
+    }
+    .kpi .value{
+      font-size: clamp(20px, 4vw, 28px); font-weight:900; letter-spacing:.02em;
+    }
+    .kpi .sub{ font-size:12px; opacity:.85; }
+    .kpi .btn{
+      background:#fff; color:var(--ink); border:none; border-radius:999px;
+      padding:8px 12px; font-weight:800; cursor:pointer; text-decoration:none;
+      box-shadow:0 6px 18px rgba(0,0,0,.15);
+    }
+
+    /* Table */
+    .table-container{ margin-top:10px; }
+    table{
+      width:100%; border-collapse:separate; border-spacing:0;
+      background: var(--card); border-radius:18px; overflow:hidden;
+      border:1px solid rgba(255,255,255,.22); box-shadow:0 8px 30px rgba(0,0,0,.18);
+    }
+    th, td{ padding:14px 18px; text-align:left; vertical-align:middle; }
+    th{
+      font-size:13px; letter-spacing:.07em; text-transform:uppercase; opacity:.95;
+      background: rgba(255,255,255,.10); border-bottom:1px solid rgba(255,255,255,.22);
+      position:sticky; top:0; backdrop-filter: blur(6px);
+    }
+    tr:nth-child(even){ background: var(--card-2); }
+    tbody tr:not(:last-child) td{ border-bottom:1px dashed rgba(255,255,255,.18); }
+
+    .highlight{ position:relative; background: var(--highlight) !important; font-weight:700; }
+    .highlight::before{ content:""; position:absolute; inset:0 auto 0 0; width:6px; background: linear-gradient(180deg, #fff, rgba(255,255,255,.5)); }
+    .aave-row.highlight::before{ display:none; }
+
+    .assets{
+      font-size: clamp(16px, 2vw, 20px); font-weight: 900; letter-spacing: .02em;
+    }
+
+    /* Aave visuals */
+    .aave-row .aave-wrap{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; position: relative; }
+    .aave-row .logo{ width:72px; height:72px; display:inline-block; }
+    .aave-row .deposit{
+      background:#fff; color:var(--ink); text-decoration:none; border-radius:999px;
+      padding:8px 12px; font-weight:800; box-shadow:0 6px 18px rgba(0,0,0,.15);
+      margin-left:80px;
+    }
+    .moving-arrow{
+      display:inline-block; font-size:18px; color:var(--up);
+      animation: arrowMove 900ms infinite alternate ease-in-out;
+      transform-origin:center; margin-left:8px;
+    }
+    @keyframes arrowMove{ from { transform: translateX(0); } to { transform: translateX(-8px); } }
+
+    .loading { text-align:center; padding:20px; opacity:.8; }
+    .error { color:#fff; text-align:center; padding:10px; font-size:13px; opacity:.9; }
+    .last-updated { text-align:center; margin-top:12px; font-size:12px; opacity:.9; }
+    .tagline{ margin-top:12px; font-weight:700; letter-spacing:.02em; text-align:center; }
+
+    /* Actions moved below table */
     .actions{
       display:grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr));
       gap:10px; margin:14px 0 14px;
@@ -80,64 +135,9 @@
     .btn:disabled{ opacity:.6; cursor:not-allowed; }
     .pill{ padding:6px 10px; border-radius:999px; background: rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.28); font-size:12px; }
 
-    /* Table — higher contrast, less gap, bigger TVL numbers */
-    .table-container{ margin-top:10px; }
-    table{
-      width:100%;
-      border-collapse:separate;
-      border-spacing:0;
-      background: var(--card);
-      border-radius:18px;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,.22);
-      box-shadow:0 8px 30px rgba(0,0,0,.18);
+    @media (max-width: 850px){
+      .kpis{ grid-template-columns: 1fr; }
     }
-    th, td{ padding:14px 18px; text-align:left; vertical-align:middle; }
-    th{
-      font-size:13px;
-      letter-spacing:.07em;
-      text-transform:uppercase;
-      opacity:.95;
-      background: rgba(255,255,255,.10);
-      border-bottom:1px solid rgba(255,255,255,.22);
-      position:sticky; top:0; backdrop-filter: blur(6px);
-    }
-    tr:nth-child(even){ background: var(--card-2); }
-    tbody tr:not(:last-child) td{
-      border-bottom:1px dashed rgba(255,255,255,.18);
-    }
-
-    .highlight{ position:relative; background: var(--highlight) !important; font-weight:700; }
-    .highlight::before{ content:""; position:absolute; inset:0 auto 0 0; width:6px; background: linear-gradient(180deg, #fff, rgba(255,255,255,.5)); }
-    .aave-row.highlight::before{ display:none; }
-
-    .assets{
-      font-size: clamp(16px, 2vw, 20px);
-      font-weight: 900;
-      letter-spacing: .02em;
-    }
-
-    /* Aave visuals */
-    .aave-row .aave-wrap{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; position: relative; }
-    .aave-row .logo{ width:72px; height:72px; display:inline-block; }
-    .aave-row .deposit{
-      background:#fff; color:var(--ink); text-decoration:none;
-      border-radius:999px; padding:8px 12px; font-weight:800;
-      box-shadow:0 6px 18px rgba(0,0,0,.15);
-      margin-left:80px;
-    }
-    .moving-arrow{
-      display:inline-block; font-size:18px; color:var(--up);
-      animation: arrowMove 900ms infinite alternate ease-in-out;
-      transform-origin:center; margin-left:8px;
-    }
-    @keyframes arrowMove{ from { transform: translateX(0); } to { transform: translateX(-8px); } }
-
-    .loading { text-align:center; padding:20px; opacity:.8; }
-    .error { color:#fff; text-align:center; padding:10px; font-size:13px; opacity:.9; }
-    .last-updated { text-align:center; margin-top:12px; font-size:12px; opacity:.9; }
-    .tagline{ margin-top:12px; font-weight:700; letter-spacing:.02em; text-align:center; }
-
     @media (max-width: 720px){
       thead{ display:none; }
       table, tbody, tr, td{ display:block; width:100%; }
@@ -160,16 +160,58 @@
       <p>Built in a rush with love by Hoobi</p>
     </header>
 
-    <!-- CHART FIRST -->
+    <!-- CHART -->
     <div class="card" id="rankCard" style="display:none; margin-top:8px;">
-      <h3>Aave rank (full history)</h3>
+      <h3>Aave rank (from 23 Jul 2020)</h3>
       <div class="chart-wrap" id="chartWrap">
-        <canvas id="rankChart" aria-label="Aave daily rank over full history" role="img"></canvas>
+        <canvas id="rankChart" aria-label="Aave daily rank since 2020-07-23" role="img"></canvas>
         <div class="tooltip" id="tooltip"></div>
       </div>
     </div>
 
-    <!-- FILE BUTTONS BELOW CHART -->
+    <!-- KPI ROW -->
+    <div class="kpis" id="kpiRow" style="display:none;">
+      <div class="kpi">
+        <div>
+          <div class="label">Current Rank</div>
+          <div class="value" id="kpiRank">#—</div>
+          <div class="sub" id="kpiRankSub">vs full US bank list</div>
+        </div>
+        <a href="#tableAnchor" class="btn" aria-label="Go to table">Go to table</a>
+      </div>
+      <div class="kpi">
+        <div>
+          <div class="label">Fees (all-time)</div>
+          <div class="value">$962.02M</div>
+          <div class="sub">Snapshot</div>
+        </div>
+      </div>
+      <div class="kpi">
+        <div>
+          <div class="label">Borrowed</div>
+          <div class="value">$27.901B</div>
+          <div class="sub">Current</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-container" id="tableAnchor">
+      <div id="loading" class="loading" role="status" aria-live="polite">Loading…</div>
+      <table id="dataTable" style="display:none;" aria-label="Aave vs Banks ranking">
+        <thead>
+          <tr>
+            <th scope="col">Rank</th>
+            <th scope="col">Name</th>
+            <th scope="col">Assets</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      <div id="msg" class="error" style="display:none;"></div>
+    </div>
+
+    <!-- ACTIONS (MOVED BELOW TABLE) -->
     <div class="actions">
       <div class="group" id="bankControls">
         <h3>Bank data file (banks.json)</h3>
@@ -194,31 +236,16 @@
       </div>
     </div>
 
-    <!-- TABLE (tighter spacing, stronger contrast, bigger TVL) -->
-    <div class="table-container">
-      <div id="loading" class="loading" role="status" aria-live="polite">Loading…</div>
-      <table id="dataTable" style="display:none;" aria-label="Aave vs Banks ranking">
-        <thead>
-          <tr>
-            <th scope="col">Rank</th>
-            <th scope="col">Name</th>
-            <th scope="col">Assets</th>
-          </tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-      </table>
-      <div id="msg" class="error" style="display:none;"></div>
-    </div>
-
     <div id="lastUpdated" class="last-updated" aria-live="polite"></div>
     <p class="tagline">DeFi will win, Ethereum will win!</p>
   </div>
 
   <script>
     /* ==== Keys / constants ==== */
-    const BANKS_KEY = 'banksCacheV7';
-    const AAVE_KEY  = 'aaveHistCacheV5';
+    const BANKS_KEY = 'banksCacheV8';
+    const AAVE_KEY  = 'aaveHistCacheV6';
     const AAVE_FALLBACK_B = 12.5;
+    const CHART_START = new Date('2020-07-23T00:00:00'); // start chart from 23 Jul 2020
 
     const bankFallback = [
       { name: "JPMORGAN CHASE BK NA", assets: 3643.099 },
@@ -243,8 +270,7 @@
     function downloadJSON(obj, filename){
       const blob = new Blob([JSON.stringify(obj, null, 2)], { type:'application/json' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
     async function fetchJSON(url){
       const r = await fetch(url, { cache:'no-store' });
@@ -318,9 +344,12 @@
       }catch{ return null; }
     }
 
-    /* ==== Rank series (FULL history) ==== */
+    /* ==== Rank series (FULL history, clipped from 2020-07-23) ==== */
+    // Returns [{ t:Date, tvlB:Number, rank:Number }]
     function computeRankSeriesFull(banks, aaveHist){
       const bankAssetsB = [...banks].map(b => b.assets).sort((a,b)=>b-a);
+
+      // Build points with dates (or synthesize)
       const today = new Date();
       let pts = [];
       for (let i=0;i<(aaveHist?.length||0);i++){
@@ -344,6 +373,10 @@
                  .sort((a,b)=>a.date - b.date);
       }
 
+      // Filter from CHART_START
+      pts = pts.filter(pt => pt.date >= CHART_START);
+
+      // Collapse same-day duplicates
       const byDay = new Map();
       for (const pt of pts){
         const key = pt.date.toISOString().slice(0,10);
@@ -351,8 +384,9 @@
       }
       const dedup = Array.from(byDay.values()).sort((a,b)=>a.date - b.date);
 
+      // Compute rank for each day
       return dedup.map(pt => {
-        // binary search count of banks > Aave
+        // count how many banks have assets > Aave tvl
         let lo=0, hi=bankAssetsB.length;
         while (lo < hi){
           const mid=(lo+hi)>>1;
@@ -360,6 +394,18 @@
         }
         return { t: pt.date, tvlB: pt.tvlB, rank: lo + 1 };
       });
+    }
+
+    /* ==== Current rank helper (for KPI) ==== */
+    function computeCurrentRank(banks, aaveUSD){
+      const aaveB = (aaveUSD ?? (AAVE_FALLBACK_B*1e9)) / 1e9;
+      const bankAssetsB = [...banks].map(b => b.assets).sort((a,b)=>b-a);
+      let lo=0, hi=bankAssetsB.length;
+      while (lo < hi){
+        const mid=(lo+hi)>>1;
+        if (bankAssetsB[mid] > aaveB) lo = mid + 1; else hi = mid;
+      }
+      return lo + 1;
     }
 
     /* ==== Chart drawing + interactivity ==== */
@@ -416,7 +462,7 @@
       ctx.textAlign = 'right';
       ctx.fillText(fmt(series[series.length-1].t), W - PAD_R, H - PAD_B + 4*DPR);
 
-      // glow underlay
+      // glow
       ctx.strokeStyle = 'rgba(255,255,255,.35)';
       ctx.lineWidth = Math.max(6, 6*DPR);
       ctx.globalAlpha = .35;
@@ -558,6 +604,13 @@
       msg.textContent = `Showing Aave (rank ${idx+1}) vs banks • Today only (banks=${banks.length})`;
     }
 
+    /* ==== KPI updater ==== */
+    function updateKpis(banks, aaveUSD){
+      const rank = computeCurrentRank(banks, aaveUSD);
+      $('#kpiRank').textContent = `#${rank}`;
+      $('#kpiRow').style.display = 'grid';
+    }
+
     /* ==== Boot ==== */
     async function boot(){
       let banksCache = readCache(BANKS_KEY);
@@ -581,18 +634,20 @@
       const aHist = aaveCache.history || [];
       const aUSD  = latestFromHistoryUSD(aHist) ?? null;
 
-      // CHART first
+      // Chart
       const series = computeRankSeriesFull(banks, aHist);
-      const card = $('#rankCard');
       if (series.length){
-        card.style.display = 'block';
+        $('#rankCard').style.display = 'block';
         requestAnimationFrame(()=> drawRankChart($('#rankChart'), series));
       } else {
-        card.style.display = 'none';
+        $('#rankCard').style.display = 'none';
       }
       setupHover($('#rankChart'), $('#chartWrap'), $('#tooltip'));
 
-      // Then table
+      // KPIs
+      updateKpis(banks, aUSD);
+
+      // Table
       renderToday(banks, aUSD);
 
       $('#loading').style.display = 'none';
@@ -606,7 +661,7 @@
       });
     }
 
-    /* ==== Buttons ==== */
+    /* ==== Buttons (below table) ==== */
     $('#refreshBanks').addEventListener('click', async (e)=>{
       const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Refreshing…';
       try{
@@ -618,12 +673,13 @@
         const aHist = (readCache(AAVE_KEY)||{}).history || [];
         const aUSD  = latestFromHistoryUSD(aHist);
 
-        // Update chart first, then table
+        // Update chart & KPIs then table
         const series = computeRankSeriesFull(banks, aHist);
         if (series.length){
           $('#rankCard').style.display = 'block';
           drawRankChart($('#rankChart'), series);
         }
+        updateKpis(banks, aUSD);
         renderToday(banks, aUSD);
 
         $('#lastUpdated').textContent = `Last updated: ${new Date(stamp).toLocaleString()} (banks)`;
@@ -648,12 +704,13 @@
 
         const banks = (readCache(BANKS_KEY)||{}).banks || bankFallback;
 
-        // Update chart first, then table
+        // Update chart & KPIs then table
         const series = computeRankSeriesFull(banks, history);
         if (series.length){
           $('#rankCard').style.display = 'block';
           drawRankChart($('#rankChart'), series);
         }
+        updateKpis(banks, todayUSD);
         renderToday(banks, todayUSD);
 
         $('#lastUpdated').textContent = `Last updated: ${new Date(stamp).toLocaleString()} (aave)`;
