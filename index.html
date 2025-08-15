@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Aave vs Banks — split data files</title>
+  <title>Aave vs Banks — fast refresh</title>
   <style>
     :root{
       --bg:#9C8CF4;
@@ -48,7 +48,6 @@
       display:inline-flex; align-items:center; gap:6px;
     }
     .up{ color: var(--up); }
-    .down{ color: var(--down); }
 
     .aave-row .aave-wrap{
       display:flex; align-items:center; gap:12px; flex-wrap:wrap;
@@ -128,11 +127,11 @@
 
   <script>
     // ---------------- Consts & state ----------------
-    const BANKS_KEY = 'banksCacheV1';
-    const AAVE_KEY  = 'aaveHistCacheV1'; // stores full history array
+    const BANKS_KEY = 'banksCacheV2';       // bump version to avoid stale shape
+    const AAVE_KEY  = 'aaveHistCacheV2';
     const AAVE_FALLBACK_B = 12.5;
 
-    // Minimal fallback banks
+    // Small fallback just to paint something if first load fails
     const bankFallback = [
       { name: "JPMORGAN CHASE BK NA", assets: 3643.099 },
       { name: "BANK OF AMER NA", assets: 2615.296 },
@@ -144,108 +143,94 @@
       { name: "TRUIST BK", assets: 527.488 },
       { name: "CAPITAL ONE NA", assets: 490.573 },
       { name: "STATE STREET B&TC", assets: 368.219 },
-      { name: "TD BK NA", assets: 366.507 },
-      { name: "BANK OF NY MELLON", assets: 356.262 },
-      { name: "BMO BK NA", assets: 257.049 },
-      { name: "MORGAN STANLEY BK NA", assets: 234.481 },
-      { name: "FIRST-CITIZENS B&TC", assets: 228.632 },
-      { name: "CITIZENS BK NA", assets: 220.014 },
-      { name: "FIFTH THIRD BK NA", assets: 211.921 },
-      { name: "MANUFACTURERS & TRADERS TC", assets: 209.801 },
-      { name: "HUNTINGTON NB", assets: 208.159 },
-      { name: "AMERICAN EXPRESS NB", assets: 203.448 }
     ];
 
     // ---------------- Utils ----------------
     const $ = sel => document.querySelector(sel);
     const formatB = v => `$${v.toFixed(1)} B`;
     const nowISO = () => new Date().toISOString();
-
-    const readCache = key => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
+    const readCache  = key => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
     const writeCache = (key, obj) => localStorage.setItem(key, JSON.stringify(obj));
-
-    const setBadge = (id, dateOrNull, labelWhenEmpty) => {
-      const el = $(id);
-      if (!dateOrNull) { el.textContent = labelWhenEmpty; return; }
-      el.textContent = `Cached: ${new Date(dateOrNull).toLocaleString()}`;
-    };
-
-    function downloadJSON(obj, filename){
+    const setBadge = (id, dateOrNull, empty) => { const el = $(id); el.textContent = dateOrNull ? `Cached: ${new Date(dateOrNull).toLocaleString()}` : empty; };
+    const downloadJSON = (obj, filename) => {
       const blob = new Blob([JSON.stringify(obj, null, 2)], { type:'application/json' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click();
-      a.remove(); URL.revokeObjectURL(url);
-    }
+      const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    };
 
-    async function fetchJSON(url){
-      const res = await fetch(url, { cache:'no-store' });
-      if(!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-      return res.json();
-    }
+    // ---------------- FAST bank fetch (ASCII, top ~60) ----------------
+    async function fetchBanksFast(){
+      // FRB ASCII: https://www.federalreserve.gov/releases/lbr/current/lrg_bnk_lst.txt
+      // Fetch via CORS proxy (raw) to avoid another JSON parse layer.
+      const asciiURL = 'https://www.federalreserve.gov/releases/lbr/current/lrg_bnk_lst.txt';
+      const via = u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`;
 
-    // ---------------- Fetchers ----------------
-    // Banks: scrape Fed page
-    async function fetchBanks(){
-      try{
-        const proxy = 'https://api.allorigins.win/get?url=';
-        const url = encodeURIComponent('https://www.federalreserve.gov/releases/lbr/current/');
-        const resp = await fetch(`${proxy}${url}`, { cache:'no-store' });
-        if(!resp.ok) throw new Error('banks fetch failed');
-        const { contents } = await resp.json();
-        const doc = new DOMParser().parseFromString(contents, 'text/html');
-        const rows = doc.querySelectorAll('tr');
-        const out = [];
-        for (const row of rows){
-          const tds = row.querySelectorAll('td');
-          if (tds.length >= 6){
-            const name = tds[0]?.textContent?.trim() || '';
-            const assets = tds[5]?.textContent?.trim() || '';
-            if ((name.includes('BK') || name.includes('BANK')) && assets){
-              const n = parseFloat(assets.replace(/[^0-9.]/g,''));
-              if (!isNaN(n) && n>100){
-                out.push({ name: name.split('/')[0].trim(), assets: n/1000 });
-              }
-            }
-          }
-        }
-        return out.sort((a,b)=>b.assets-a.assets).slice(0,50);
-      }catch(e){
-        console.warn('banks fallback', e);
-        return bankFallback;
+      const res = await fetch(via(asciiURL), { cache:'no-store' });
+      if (!res.ok) throw new Error(`banks ASCII HTTP ${res.status}`);
+      const text = await res.text();
+
+      const lines = text.split(/\r?\n/);
+      const out = [];
+      for (const line of lines){
+        // Rows are columns separated by 2+ spaces. Example:
+        // JPMORGAN CHASE BK NA/...  1  852218  COLUMBUS, OH  NAT  3,643,099  2,703,246  74 ...
+        const cols = line.trim().split(/\s{2,}/);
+        if (cols.length < 7) continue;
+
+        const rank = parseInt(cols[1], 10);
+        if (!Number.isFinite(rank)) continue;       // skip headers etc.
+        const name = cols[0].split('/')[0].trim();
+        const consAssetsMil = parseFloat(cols[5].replace(/,/g,''));
+        if (!Number.isFinite(consAssetsMil)) continue;
+
+        out.push({ name, assets: consAssetsMil / 1000 }); // -> billions
+        if (out.length >= 60) break;               // we only need top ~60
       }
+      return out;
     }
 
-    // Aave historical from /protocol/{protocol}
-    function coerceAavePoint(x){
+    // ---------------- Aave historical from /protocol/aave ----------------
+    async function fetchJSON(url){ const r = await fetch(url, { cache:'no-store' }); if(!r.ok) throw new Error(`HTTP ${r.status} for ${url}`); return r.json(); }
+
+    function coercePointUSD(x){
       if (typeof x === 'number') return x;
       if (x && typeof x === 'object'){
-        const v = x.totalLiquidityUSD ?? x.totalLiquidityUsd ?? x.totalLiquidity ?? x.value ?? x.tvl;
-        if (typeof v === 'number') return v;
+        const cand = [x.totalLiquidityUSD, x.totalLiquidityUsd, x.totalLiquidity, x.value, x.tvl];
+        for (const v of cand) if (typeof v === 'number' && isFinite(v)) return v;
       }
       return null;
     }
-    async function fetchAaveHistory(){
-      // Docs endpoint: https://api.llama.fi/protocol/aave
+    function latestFromHistoryUSD(arr){
+      for (let i = (arr?.length||0) - 1; i >= 0; i--){
+        const v = coercePointUSD(arr[i]);
+        // sanity: TVL should be between $10M and $1T
+        if (typeof v === 'number' && v > 1e7 && v < 1e12) return v;
+      }
+      return null;
+    }
+
+    async function fetchAaveHistory(){ // for aave.json file
       const data = await fetchJSON('https://api.llama.fi/protocol/aave');
-      const arr = Array.isArray(data.tvl) ? data.tvl : [];
-      return arr;
+      return Array.isArray(data.tvl) ? data.tvl : [];
+    }
+
+    // Optional: if the history last point is unusable, get "today" quickly
+    async function fallbackAaveTodayUSD(){
+      try{
+        const list = await fetchJSON('https://api.llama.fi/protocols');
+        const a = list.find(p => p.slug === 'aave') ||
+                  list.find(p => p.slug === 'aave-v3') ||
+                  list.find(p => p.slug === 'aave-v2');
+        return (a && typeof a.tvl === 'number') ? a.tvl : null;
+      }catch{ return null; }
     }
 
     // ---------------- Rendering (today-only) ----------------
-    function renderToday(banks, aaveHist){
+    function renderToday(banks, aaveUSD_or_null){
       const table = $('#tableBody');
       table.innerHTML = '';
 
-      // get "today" Aave = last value in history
-      let aaveUsd = null;
-      if (Array.isArray(aaveHist) && aaveHist.length){
-        const last = aaveHist[aaveHist.length - 1];
-        const v = coerceAavePoint(last);
-        if (typeof v === 'number' && isFinite(v)) aaveUsd = v;
-      }
-      const aaveB = (aaveUsd ?? AAVE_FALLBACK_B * 1e9) / 1e9; // billions
+      const aaveB = ((aaveUSD_or_null ?? (AAVE_FALLBACK_B*1e9)) / 1e9);
 
       const combined = [...banks, { name:'Aave', assets: aaveB, isAave:true }];
       const sorted = combined.sort((a,b)=>b.assets-a.assets);
@@ -270,10 +255,8 @@
              </div>`
           : item.name;
 
-        /* ONLY Aave shows a rank-change badge, constant "^ 3" up */
-        const badge = isAave
-          ? `<span class="rank-change up" aria-label="rank change up by 3">^ 3</span>`
-          : '';
+        // ONLY Aave shows rank-change, constant “^ 3” up
+        const badge = isAave ? `<span class="rank-change up" aria-label="rank change up by 3">^ 3</span>` : '';
 
         tr.innerHTML = `
           <td data-label="Rank">${rank}${badge}</td>
@@ -283,7 +266,6 @@
         table.appendChild(tr);
       }
 
-      // info line
       const msg = $('#msg');
       msg.style.display = 'block';
       msg.style.color = '#fff';
@@ -301,46 +283,61 @@
 
       const banks = banksCache?.banks || bankFallback;
       const aaveHist = aaveCache?.history || [];
+      const aaveUSD = latestFromHistoryUSD(aaveHist); // may be null
 
-      renderToday(banks, aaveHist);
+      renderToday(banks, aaveUSD);
       $('#loading').style.display = 'none';
       $('#dataTable').style.display = 'table';
       const ts = banksCache?.updatedAt || aaveCache?.updatedAt || nowISO();
       $('#lastUpdated').textContent = `Last updated: ${new Date(ts).toLocaleString()}`;
     }
 
-    // --- Buttons: Refresh ---
+    // --- Buttons: Refresh (fast ASCII for banks, robust latest for Aave) ---
     $('#refreshBanks').addEventListener('click', async (e)=>{
       const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Refreshing…';
       try{
-        const banks = await fetchBanks();
+        const banks = await fetchBanksFast();
         const stamp = nowISO();
         writeCache(BANKS_KEY, { updatedAt: stamp, banks });
         setBadge('#banksBadge', stamp, 'No banks cache yet');
 
         const aaveHist = (readCache(AAVE_KEY)||{}).history || [];
-        renderToday(banks, aaveHist);
+        const aaveUSD = latestFromHistoryUSD(aaveHist);
+        renderToday(banks, aaveUSD);
         $('#lastUpdated').textContent = `Last updated: ${new Date(stamp).toLocaleString()} (banks)`;
-      }catch(err){ console.error(err); }
-      finally{ btn.disabled = false; btn.textContent = '🔄 Refresh Bank Data'; }
+      }catch(err){
+        console.error(err);
+        alert('Refreshing bank data failed. Using cached/fallback.');
+      }finally{
+        btn.disabled = false; btn.textContent = '🔄 Refresh Bank Data';
+      }
     });
 
     $('#refreshAave').addEventListener('click', async (e)=>{
       const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Refreshing…';
       try{
-        const history = await fetchAaveHistory();
+        const history = await fetchAaveHistory();            // full series
+        let todayUSD = latestFromHistoryUSD(history);
+
+        // If last point is malformed or missing, use a quick fallback *for display only*
+        if (todayUSD == null) todayUSD = await fallbackAaveTodayUSD();
+
         const stamp = nowISO();
         writeCache(AAVE_KEY, { updatedAt: stamp, history });
         setBadge('#aaveBadge', stamp, 'No aave cache yet');
 
         const banks = (readCache(BANKS_KEY)||{}).banks || bankFallback;
-        renderToday(banks, history);
+        renderToday(banks, todayUSD);
         $('#lastUpdated').textContent = `Last updated: ${new Date(stamp).toLocaleString()} (aave)`;
-      }catch(err){ console.error(err); }
-      finally{ btn.disabled = false; btn.textContent = '🔄 Refresh Aave Data'; }
+      }catch(err){
+        console.error(err);
+        alert('Refreshing Aave data failed. Using cached/fallback.');
+      }finally{
+        btn.disabled = false; btn.textContent = '🔄 Refresh Aave Data';
+      }
     });
 
-    // --- Buttons: Export ---
+    // --- Buttons: Export (no import buttons) ---
     $('#exportBanks').addEventListener('click', ()=>{
       const cache = readCache(BANKS_KEY);
       if (!cache){ alert('No banks cache yet. Refresh first.'); return; }
