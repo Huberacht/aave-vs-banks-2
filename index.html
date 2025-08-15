@@ -100,12 +100,15 @@
       padding:8px 12px; font-weight:800; box-shadow:0 6px 18px rgba(0,0,0,.15);
       margin-left:80px;
     }
-    .moving-arrow{
-      display:inline-block; font-size:18px; color:var(--up);
-      animation: arrowMove 900ms infinite alternate ease-in-out;
-      transform-origin:center; margin-left:8px;
+
+    /* NEW: rank movement badge (same look as buttons) */
+    .rank-badge{
+      display:inline-flex; align-items:center; gap:6px;
+      background:#fff; color:var(--ink);
+      border-radius:999px; padding:4px 10px; margin-left:8px;
+      font-weight:900; font-size:12px; box-shadow:0 6px 18px rgba(0,0,0,.15);
     }
-    @keyframes arrowMove{ from { transform: translateX(0); } to { transform: translateX(-8px); } }
+    .rank-badge .arrow{ font-size:14px; line-height:1; color: var(--up); }
 
     .loading { text-align:center; padding:20px; opacity:.8; }
     .error { color:#fff; text-align:center; padding:10px; font-size:13px; opacity:.9; }
@@ -233,7 +236,7 @@
   <script>
     /* ==== Keys / constants ==== */
     const BANKS_KEY = 'banksCacheV8';
-    const AAVE_KEY  = 'aaveHistCacheV7'; // bumped to include borrowed history
+    const AAVE_KEY  = 'aaveHistCacheV7'; // includes borrowed history
     const AAVE_FALLBACK_B = 12.5;
     const CHART_START = new Date('2020-07-23T00:00:00');
 
@@ -333,7 +336,6 @@
     }
 
     async function fetchAaveProtocol(){
-      // Single hit; contains tvl[], maybe borrowed[], and chainTvls.{chain}.borrowed
       return fetchJSON('https://api.llama.fi/protocol/aave');
     }
 
@@ -349,13 +351,12 @@
         }
       }
 
-      // 2) otherwise, sum per-chain borrowed arrays by date
+      // 2) otherwise sum per-chain borrowed[] by date
       if (!out.length && proto.chainTvls && typeof proto.chainTvls === 'object'){
         const map = new Map(); // dateKey -> sumUSD
         for (const ch of Object.keys(proto.chainTvls)){
-          const chObj = proto.chainTvls[ch];
-          const arr = (chObj && Array.isArray(chObj.borrowed)) ? chObj.borrowed : null;
-          if (!arr) continue;
+          const arr = proto.chainTvls[ch]?.borrowed;
+          if (!Array.isArray(arr)) continue;
           for (const p of arr){
             const usd = coerceBorrowedUSD(p);
             const d = extractPointDate(p, null);
@@ -369,7 +370,6 @@
         }
       }
 
-      // Dedup last-per-day, sorted
       if (!out.length) return [];
       const byDay = new Map();
       for (const pt of out){
@@ -382,8 +382,7 @@
     async function fetchAaveHistoryFull(){
       const proto = await fetchAaveProtocol();
       const tvl = Array.isArray(proto.tvl) ? proto.tvl : [];
-      const borrowed = buildBorrowedSeries(proto); // may be empty
-
+      const borrowed = buildBorrowedSeries(proto);
       return { tvl, borrowed };
     }
 
@@ -402,12 +401,12 @@
       }
       if (!pts.length) return [];
 
-      // normalize dates, sort, filter from CHART_START
+      // normalize, sort, filter
       pts = pts.filter(pt => pt.date instanceof Date && !isNaN(+pt.date))
                .sort((a,b)=>a.date - b.date)
                .filter(pt => pt.date >= CHART_START);
 
-      // make a map of borrowed by day
+      // map of borrowed by day
       const borrowedMap = new Map();
       for (const p of (aaveBorrowed||[])){
         const d = p.date instanceof Date ? p.date : extractPointDate(p, null);
@@ -416,7 +415,7 @@
         borrowedMap.set(d.toISOString().slice(0,10), billions(usd));
       }
 
-      // collapse same day for tvl; attach borrowed if available
+      // collapse same-day tvl and compute rank
       const byDay = new Map();
       for (const pt of pts){
         const key = pt.date.toISOString().slice(0,10);
@@ -425,7 +424,6 @@
       const dedup = Array.from(byDay.values()).sort((a,b)=>a.date - b.date);
 
       return dedup.map(pt => {
-        // rank from TVL vs bank assets
         let lo=0, hi=bankAssetsB.length;
         while (lo < hi){
           const mid=(lo+hi)>>1;
@@ -471,8 +469,8 @@
       const line = getComputedStyle(document.documentElement).getPropertyValue('--line');
 
       // horizontal grid
-      ctx.strokeStyle = grid; ctx.lineWidth = Math.max(1, DPR);
       const yMin = y(minR), yMax = y(maxR), yMid = y((minR+maxR)/2);
+      ctx.strokeStyle = grid; ctx.lineWidth = Math.max(1, DPR);
       ctx.beginPath(); ctx.moveTo(PAD_L, yMin); ctx.lineTo(W-PAD_R, yMin); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(PAD_L, yMid); ctx.lineTo(W-PAD_R, yMid); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(PAD_L, yMax); ctx.lineTo(W-PAD_R, yMax); ctx.stroke();
@@ -590,8 +588,17 @@
       wrapEl.addEventListener('touchend', hideTooltip);
     }
 
+    /* ==== Rank delta (today vs previous day) ==== */
+    function computeRankDeltaUp(series){
+      if (!Array.isArray(series) || series.length < 2) return 3; // fallback
+      const prev = series[series.length - 2].rank;
+      const curr = series[series.length - 1].rank;
+      const delta = prev - curr; // positive means moved UP
+      return delta > 0 ? delta : 0;
+    }
+
     /* ==== Today table ==== */
-    function renderToday(banks, aaveUSD_or_null){
+    function renderToday(banks, aaveUSD_or_null, rankDeltaUp = 3){
       const tbody = $('#tableBody');
       tbody.innerHTML = '';
 
@@ -619,7 +626,12 @@
              </div>`
           : item.name;
 
-        const badge = isAave ? `<span class="moving-arrow" aria-label="moving arrow toward Aave">⇠</span>` : '';
+        // NEW: visible up arrow badge with ranks moved (same background as buttons)
+        const badge = isAave
+          ? `<span class="rank-badge" aria-label="moved up ${rankDeltaUp} places since previous day">
+               <span class="arrow">↑</span> ${rankDeltaUp}
+             </span>`
+          : '';
 
         tr.innerHTML = `
           <td data-label="Rank">${rank}${badge}</td>
@@ -684,7 +696,7 @@
       const aUSD  = latestFromHistoryUSD(tvlHist, coercePointUSD) ?? null;
       const bUSD  = latestFromHistoryUSD(borHist, p => typeof p.usd==='number'?p.usd:coerceBorrowedUSD(p));
 
-      // Chart (rank series uses TVL, includes borrowed in tooltip)
+      // Chart & series
       const series = computeRankSeriesFull(banks, tvlHist, borHist);
       if (series.length){
         $('#rankCard').style.display = 'block';
@@ -697,8 +709,9 @@
       // KPIs
       updateKpis(banks, aUSD, bUSD);
 
-      // Table
-      renderToday(banks, aUSD);
+      // Table with rank delta from series
+      const rankDeltaUp = computeRankDeltaUp(series);
+      renderToday(banks, aUSD, rankDeltaUp);
 
       $('#loading').style.display = 'none';
       $('#dataTable').style.display = 'table';
@@ -731,7 +744,9 @@
           drawRankChart($('#rankChart'), series);
         }
         updateKpis(banks, aUSD, bUSD);
-        renderToday(banks, aUSD);
+
+        const rankDeltaUp = computeRankDeltaUp(series);
+        renderToday(banks, aUSD, rankDeltaUp);
 
         $('#lastUpdated').textContent = `Last updated: ${new Date(stamp).toLocaleString()} (banks)`;
       }catch(err){
@@ -748,7 +763,6 @@
         const { tvl, borrowed } = await fetchAaveHistoryFull();
         let todayUSD  = latestFromHistoryUSD(tvl, coercePointUSD);
         if (todayUSD == null){
-          // optional fallback if TVL series is empty
           const list = await fetchJSON('https://api.llama.fi/protocols');
           const a = list.find(p => p.slug === 'aave') || list.find(p => p.slug === 'aave-v3') || list.find(p => p.slug === 'aave-v2');
           todayUSD = (a && typeof a.tvl === 'number') ? a.tvl : null;
@@ -768,7 +782,9 @@
           drawRankChart($('#rankChart'), series);
         }
         updateKpis(banks, todayUSD, borrowedUSD_latest);
-        renderToday(banks, todayUSD);
+
+        const rankDeltaUp = computeRankDeltaUp(series);
+        renderToday(banks, todayUSD, rankDeltaUp);
 
         $('#lastUpdated').textContent = `Last updated: ${new Date(stamp).toLocaleString()} (aave)`;
       }catch(err){
