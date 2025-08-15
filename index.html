@@ -97,6 +97,7 @@
       width:6px;
       background: linear-gradient(180deg, #fff, rgba(255,255,255,.5));
     }
+    /* Remove the left white strip for the Aave row only */
     .aave-row.highlight::before{ display:none; }
 
     .rank-change{
@@ -115,6 +116,36 @@
       height: 72px;
       margin-right: 0;
       vertical-align: middle;
+    }
+
+    /* NEW: Aave CTA pill next to the logo */
+    .aave-cta {
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      margin-left:16px;               /* “a bit to the right from logo” */
+      padding:8px 12px;
+      border-radius:999px;            /* capsule */
+      background: rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.22);
+      color:#fff;
+      font-weight:800;
+      text-decoration:none;
+      white-space:nowrap;
+      transition: background .2s ease, transform .06s ease;
+    }
+    .aave-cta:hover{ background: rgba(255,255,255,.18); }
+    .aave-cta:active{ transform: translateY(1px); }
+    .aave-cta .arrow{
+      display:inline-block;
+      font-size:16px;
+      line-height:1;
+      transform: translateX(0);
+      animation: arrow-nudge 1.2s ease-in-out infinite;
+    }
+    @keyframes arrow-nudge {
+      0%,100% { transform: translateX(0); }
+      50%     { transform: translateX(4px); }
     }
 
     .loading {
@@ -161,6 +192,8 @@
         font-weight:700; opacity:.9;
       }
       .highlight::before{ width:4px; }
+      /* On small screens let the CTA wrap under the logo nicely */
+      .aave-cta{ display:inline-flex; margin-left:8px; margin-top:8px; }
     }
   </style>
 </head>
@@ -295,7 +328,6 @@
     async function fetchAaveTVL() {
       const bust = Date.now();
       try {
-        // Add a query param to defeat CDNs/proxies
         const res = await fetch(`https://api.llama.fi/protocol/aave?cb=${bust}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('Bad response');
         const data = await res.json();
@@ -309,7 +341,6 @@
     async function fetchBankData() {
       const bust = Date.now();
       try {
-        // Bust both the proxy and the target URL
         const proxyUrl = 'https://api.allorigins.win/get?url=';
         const target = encodeURIComponent(`https://www.federalreserve.gov/releases/lbr/current/?cb=${bust}`);
         const response = await fetch(`${proxyUrl}${target}&cb=${bust}`, { cache: 'no-store' });
@@ -360,9 +391,14 @@
         if (isAave) tr.className = 'aave-row highlight';
 
         const nameCell = isAave
-          ? `<span class="logo" aria-hidden="true">
-               <img src="aave.svg" alt="Aave logo" style="width:150px; height:72px; vertical-align:middle;">
-             </span>`
+          ? `
+            <span class="logo" aria-hidden="true">
+              <img src="aave.svg" alt="Aave logo" style="width:150px; height:72px; vertical-align:middle;">
+            </span>
+            <a class="aave-cta" href="https://app.aave.com/" target="_blank" rel="noopener noreferrer" aria-label="Deposit now on Aave (opens in a new tab)">
+              Deposit now <span class="arrow">➜</span>
+            </a>
+          `
           : item.name;
 
         tr.innerHTML = `
@@ -406,7 +442,7 @@
     }
 
     // ---------------- Data flow ----------------
-    let refreshToken = 0; // prevents stale responses winning races
+    let refreshToken = 0;
 
     async function doNetworkRefresh({ showHint = true } = {}) {
       const myToken = ++refreshToken;
@@ -422,7 +458,6 @@
       } catch (e) {
         console.error('Refresh failed', e);
       } finally {
-        // If another refresh started after this one, ignore this result
         if (myToken !== refreshToken) return;
         renderTable(allBanks, aaveTVL);
         setUIState({ loading: false });
