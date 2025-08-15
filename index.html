@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Aave vs Banks — TVL, Borrowed history, Rank</title>
+  <title>Aave vs Banks — TVL, Borrowed toggle, Rank</title>
   <style>
     :root{
       --bg:#9C8CF4;
@@ -28,7 +28,7 @@
     .card{
       background: var(--card);
       border-radius:18px;
-      padding:14px 14px 8px;
+      padding:14px 14px 10px;
       border:1px solid rgba(255,255,255,.22);
       box-shadow:0 6px 30px rgba(0,0,0,.18);
     }
@@ -45,6 +45,31 @@
       transform: translate(-50%, -110%); white-space:nowrap; display:none; z-index:2;
     }
     .tooltip .muted{ opacity:.8; }
+
+    /* Borrowed toggle (below chart) */
+    .toggle-row{
+      display:flex; align-items:center; gap:10px;
+      margin-top:10px; padding:10px 12px;
+      background:var(--card-2); border:1px solid rgba(255,255,255,.22);
+      border-radius:12px;
+    }
+    .switch{
+      position:relative; width:44px; height:24px; background:rgba(255,255,255,.25);
+      border-radius:999px; cursor:pointer; flex:0 0 auto; border:1px solid rgba(255,255,255,.3);
+    }
+    .switch::after{
+      content:""; position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%;
+      background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.25); transition: transform .18s ease;
+    }
+    .switch.on{ background:#fff; }
+    .switch.on::after{ transform: translateX(20px); background: var(--ink); }
+
+    .toggle-label{
+      font-size:14px; opacity:.95;
+    }
+    .toggle-help{
+      font-size:12px; opacity:.8;
+    }
 
     /* KPI row */
     .kpis{ display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin:12px 0 6px; }
@@ -91,7 +116,7 @@
       margin-left:80px;
     }
 
-    /* Rank movement badge */
+    /* Rank movement badge (white pill) */
     .rank-badge{
       display:inline-flex; align-items:center; gap:6px;
       background:#fff; color:var(--ink);
@@ -150,6 +175,15 @@
         <canvas id="rankChart" aria-label="Aave daily rank since 2020-08-20" role="img"></canvas>
         <div class="tooltip" id="tooltip"></div>
       </div>
+
+      <!-- Borrowed toggle -->
+      <div class="toggle-row" id="borrowedToggleRow" aria-live="polite">
+        <div class="switch" id="borrowedSwitch" role="switch" aria-checked="false" tabindex="0"></div>
+        <div>
+          <div class="toggle-label">Count borrowed assets to TVL?</div>
+          <div class="toggle-help">Adds a fixed $27.87B to Aave’s assets when ranking vs banks (chart & table update instantly).</div>
+        </div>
+      </div>
     </div>
 
     <!-- KPI ROW -->
@@ -172,8 +206,8 @@
       <div class="kpi">
         <div>
           <div class="label">Borrowed</div>
-          <div class="value" id="kpiBorrowed">$27.901B</div>
-          <div class="sub">Latest from history</div>
+          <div class="value" id="kpiBorrowed">$27.87B</div>
+          <div class="sub">Fixed (for now)</div>
         </div>
       </div>
     </div>
@@ -225,10 +259,11 @@
 
   <script>
     /* ==== Keys / constants ==== */
-    const BANKS_KEY = 'banksCacheV10';
-    const AAVE_KEY  = 'aaveHistCacheV9'; // borrowed extraction hardened
+    const BANKS_KEY = 'banksCacheV11';
+    const AAVE_KEY  = 'aaveHistCacheV10';
     const AAVE_FALLBACK_B = 12.5;
-    const CHART_START = new Date('2020-08-20T00:00:00'); // <-- 20 Aug 2020
+    const FIXED_BORROWED_B = 27.87; // <-- hard-coded borrowed in billions
+    const CHART_START = new Date('2020-08-20T00:00:00');
 
     const bankFallback = [
       { name: "JPMORGAN CHASE BK NA", assets: 3643.099 },
@@ -290,19 +325,11 @@
       return out.length ? out.sort((a,b)=>b.assets-a.assets) : bankFallback;
     }
 
-    /* ==== Aave history (TVL + Borrowed) ==== */
+    /* ==== Aave TVL history ==== */
     function coercePointUSD(x){
       if (typeof x === 'number') return x;
       if (x && typeof x === 'object'){
         const cand = [x.totalLiquidityUSD, x.totalLiquidityUsd, x.totalLiquidity, x.value, x.tvl, x.usd];
-        for (const v of cand) if (typeof v === 'number' && isFinite(v)) return v;
-      }
-      return null;
-    }
-    function coerceBorrowedUSD(x){
-      if (typeof x === 'number') return x;
-      if (x && typeof x === 'object'){
-        const cand = [x.borrowedUSD, x.borrowedUsd, x.borrowed, x.totalBorrowed, x.totalBorrows, x.debt, x.value, x.usd];
         for (const v of cand) if (typeof v === 'number' && isFinite(v)) return v;
       }
       return null;
@@ -324,124 +351,18 @@
       }
       return null;
     }
-
     async function fetchAaveProtocol(slug='aave'){
-      // you can swap slug for 'aave-v2' or 'aave-v3' if you prefer
       return fetchJSON(`https://api.llama.fi/protocol/${slug}`);
     }
-
-    // Robust borrowed-series builder:
-    // 1) use top-level .borrowed if present
-    // 2) aggregate per-chain arrays likely to be borrowed: borrowed, borrows, debt, totalBorrowed, totalBorrows
-    // 3) as a fallback, scan any chain arrays that contain borrow-like numeric fields
-    function buildBorrowedSeries(proto){
-      const out = [];
-
-      // A) direct top-level borrowed[]
-      if (Array.isArray(proto.borrowed) && proto.borrowed.length){
-        for (const p of proto.borrowed){
-          const usd = coerceBorrowedUSD(p);
-          const d = extractPointDate(p, null);
-          if (typeof usd === 'number' && d) out.push({ date: d, usd });
-        }
-      }
-
-      // Helper to add per-day
-      const addToMap = (map, date, usd) => {
-        const key = date.toISOString().slice(0,10);
-        map.set(key, (map.get(key) || 0) + usd);
-      };
-
-      // B) aggregate per-chain
-      const agg = new Map(); // day -> sumUSD
-      if (proto.chainTvls && typeof proto.chainTvls === 'object'){
-        const guessArrayKeys = ['borrowed','borrows','debt','totalBorrowed','totalBorrows'];
-        for (const ch of Object.keys(proto.chainTvls)){
-          const chObj = proto.chainTvls[ch] || {};
-          // preferred keys
-          let used = false;
-          for (const key of guessArrayKeys){
-            const arr = chObj[key];
-            if (!Array.isArray(arr)) continue;
-            used = true;
-            for (const p of arr){
-              const usd = coerceBorrowedUSD(p);
-              const d = extractPointDate(p, null);
-              if (typeof usd !== 'number' || !d) continue;
-              addToMap(agg, d, usd);
-            }
-          }
-          // fallback: scan all array-typed props for borrow-like points
-          if (!used){
-            for (const [k,val] of Object.entries(chObj)){
-              if (!Array.isArray(val)) continue;
-              // skip obviously non-time series things (like tokens, pools)
-              if (k === 'tvl' || k === 'tokens' || k === 'tokenBreakdowns' || k === 'pool2' || k === 'staking') continue;
-              for (const p of val){
-                const usd = coerceBorrowedUSD(p);
-                const d = extractPointDate(p, null);
-                if (typeof usd !== 'number' || !d) continue;
-                addToMap(agg, d, usd);
-              }
-            }
-          }
-        }
-      }
-
-      // merge agg into out (only if not already present for that day)
-      for (const [k, sum] of agg.entries()){
-        const date = new Date(k);
-        if (!out.find(o => o.date.toISOString().slice(0,10) === k)){
-          out.push({ date, usd: sum });
-        }
-      }
-
-      if (!out.length) return [];
-      // Dedup last-per-day & sort
-      const byDay = new Map();
-      for (const pt of out){
-        const key = pt.date.toISOString().slice(0,10);
-        byDay.set(key, pt);
-      }
-      return Array.from(byDay.values()).sort((a,b)=>a.date - b.date);
+    async function fetchAaveHistory(){
+      // basic: just get TVL history; borrowed is fixed constant in this version
+      const p = await fetchAaveProtocol('aave');
+      return Array.isArray(p.tvl) ? p.tvl : [];
     }
 
-    async function fetchAaveHistoryFull(){
-      // Try aave first; if borrowed still empty, try v3 (some installs keep richer per-chain breakdowns there)
-      let proto = await fetchAaveProtocol('aave');
-      let tvl = Array.isArray(proto.tvl) ? proto.tvl : [];
-      let borrowed = buildBorrowedSeries(proto);
-
-      if (!borrowed.length){
-        try{
-          const p3 = await fetchAaveProtocol('aave-v3');
-          const b3 = buildBorrowedSeries(p3);
-          if (b3.length){
-            borrowed = b3;
-            // prefer TVL from main 'aave' unless empty
-            if (!tvl.length && Array.isArray(p3.tvl)) tvl = p3.tvl;
-          }
-        }catch(e){}
-      }
-
-      // still nothing? last fallback to aave-v2
-      if (!borrowed.length){
-        try{
-          const p2 = await fetchAaveProtocol('aave-v2');
-          const b2 = buildBorrowedSeries(p2);
-          if (b2.length){
-            borrowed = b2;
-            if (!tvl.length && Array.isArray(p2.tvl)) tvl = p2.tvl;
-          }
-        }catch(e){}
-      }
-
-      return { tvl, borrowed };
-    }
-
-    /* ==== Rank series (uses TVL, from 2020-08-20) ==== */
-    // [{ t:Date, tvlB:Number, borrowedB:Number|null, rank:Number }]
-    function computeRankSeriesFull(banks, aaveHist, aaveBorrowed){
+    /* ==== Rank series (TVL +/- Borrowed), from CHART_START ==== */
+    // returns [{ t:Date, tvlB:Number, effB:Number, rank:Number }]
+    function computeRankSeries(banks, aaveHist, includeBorrowed){
       const bankAssetsB = [...banks].map(b => b.assets).sort((a,b)=>b-a);
 
       // tvl points with dates
@@ -454,21 +375,10 @@
       }
       if (!pts.length) return [];
 
-      // normalize, sort, filter start date
+      // normalize, sort, filter start date, collapse per-day
       pts = pts.filter(pt => pt.date instanceof Date && !isNaN(+pt.date))
                .sort((a,b)=>a.date - b.date)
                .filter(pt => pt.date >= CHART_START);
-
-      // map of borrowed by day (in B)
-      const borrowedMap = new Map();
-      for (const p of (aaveBorrowed||[])){
-        const d = p.date instanceof Date ? p.date : extractPointDate(p, null);
-        const usd = typeof p.usd === 'number' ? p.usd : coerceBorrowedUSD(p);
-        if (!d || typeof usd !== 'number') continue;
-        borrowedMap.set(d.toISOString().slice(0,10), billions(usd));
-      }
-
-      // collapse same-day tvl and compute rank
       const byDay = new Map();
       for (const pt of pts){
         const key = pt.date.toISOString().slice(0,10);
@@ -477,18 +387,18 @@
       const dedup = Array.from(byDay.values()).sort((a,b)=>a.date - b.date);
 
       return dedup.map(pt => {
+        const effB = pt.tvlB + (includeBorrowed ? FIXED_BORROWED_B : 0);
         let lo=0, hi=bankAssetsB.length;
         while (lo < hi){
           const mid=(lo+hi)>>1;
-          if (bankAssetsB[mid] > pt.tvlB) lo = mid + 1; else hi = mid;
+          if (bankAssetsB[mid] > effB) lo = mid + 1; else hi = mid;
         }
-        const borrowedB = borrowedMap.get(pt.date.toISOString().slice(0,10)) ?? null;
-        return { t: pt.date, tvlB: pt.tvlB, borrowedB, rank: lo + 1 };
+        return { t: pt.date, tvlB: pt.tvlB, effB, rank: lo + 1 };
       });
     }
 
     /* ==== Chart drawing + hover ==== */
-    let _chartState = { series: [], scales: null };
+    let _chartState = { series: [], scales: null, includeBorrowed: false };
 
     function drawRankChart(canvas, series){
       if (!canvas || !series?.length) return;
@@ -580,9 +490,7 @@
 
         const tvlUSD = p.tvlB * 1e9;
         const tvlFmt = `$${tvlUSD.toLocaleString(undefined,{maximumFractionDigits:0})}`;
-        const borrowedFmt = (p.borrowedB != null)
-          ? `$${(p.borrowedB*1e9).toLocaleString(undefined,{maximumFractionDigits:0})}`
-          : '—';
+        const borrowedFmt = `$${(FIXED_BORROWED_B*1e9).toLocaleString(undefined,{maximumFractionDigits:0})}`;
 
         tooltip.innerHTML = `
           <div><strong>${p.t.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'2-digit'})}</strong></div>
@@ -651,12 +559,14 @@
     }
 
     /* ==== Today table ==== */
-    function renderToday(banks, aaveUSD_or_null, rankDeltaUp = 3){
+    function renderToday(banks, tvlUSD_or_null, includeBorrowed, rankDeltaUp = 3){
       const tbody = $('#tableBody');
       tbody.innerHTML = '';
 
-      const aaveB = ((aaveUSD_or_null ?? (AAVE_FALLBACK_B*1e9)) / 1e9);
-      const combined = [...banks, { name:'Aave', assets: aaveB, isAave:true }];
+      const tvlB = ((tvlUSD_or_null ?? (AAVE_FALLBACK_B*1e9)) / 1e9);
+      const aaveEffB = tvlB + (includeBorrowed ? FIXED_BORROWED_B : 0);
+
+      const combined = [...banks, { name:'Aave', assets: aaveEffB, isAave:true }];
       const sorted = combined.sort((a,b)=>b.assets-a.assets);
       const idx = sorted.findIndex(x=>x.isAave);
 
@@ -693,85 +603,93 @@
         tbody.appendChild(tr);
       }
 
+      const mode = includeBorrowed ? 'TVL + Borrowed' : 'TVL only';
       const msg = $('#msg');
       msg.style.display = 'block';
-      msg.textContent = `Showing Aave (rank ${idx+1}) vs banks • Today only (banks=${banks.length})`;
+      msg.textContent = `Showing Aave (mode: ${mode}) with ${banks.length} banks • Today only`;
     }
 
     /* ==== KPIs ==== */
-    function updateKpis(banks, aaveUSD, borrowedUSD_latest){
-      const aaveB = (aaveUSD ?? (AAVE_FALLBACK_B*1e9)) / 1e9;
+    function updateKpis(banks, tvlUSD, includeBorrowed){
+      const tvlB = (tvlUSD ?? (AAVE_FALLBACK_B*1e9)) / 1e9;
+      const aaveEffB = tvlB + (includeBorrowed ? FIXED_BORROWED_B : 0);
+
       // rank
       const bankAssetsB = [...banks].map(b => b.assets).sort((a,b)=>b-a);
       let lo=0, hi=bankAssetsB.length;
       while (lo < hi){
         const mid=(lo+hi)>>1;
-        if (bankAssetsB[mid] > aaveB) lo = mid + 1; else hi = mid;
+        if (bankAssetsB[mid] > aaveEffB) lo = mid + 1; else hi = mid;
       }
       const rank = lo + 1;
       $('#kpiRank').textContent = `#${rank}`;
 
-      // borrowed KPI (latest available)
-      if (typeof borrowedUSD_latest === 'number'){
-        $('#kpiBorrowed').textContent = `$${borrowedUSD_latest.toLocaleString(undefined,{maximumFractionDigits:0})}`;
-      } else {
-        $('#kpiBorrowed').textContent = '—';
-      }
+      // borrowed KPI is fixed
+      $('#kpiBorrowed').textContent = `$${FIXED_BORROWED_B.toFixed(2)}B`;
       $('#kpiRow').style.display = 'grid';
     }
 
-    /* ==== Boot ==== */
+    /* ==== App state & boot ==== */
+    const App = {
+      banks: [],
+      tvlHist: [],
+      includeBorrowed: false
+    };
+
     async function boot(){
       let banksCache = readCache(BANKS_KEY);
-      let aaveCache  = readCache(AAVE_KEY);
-
       if (!banksCache){
         try { banksCache = { updatedAt: nowISO(), banks: await fetchBanksFull() }; }
         catch { banksCache = { updatedAt: nowISO(), banks: bankFallback }; }
         writeCache(BANKS_KEY, banksCache);
       }
+      setBadge('#banksBadge', banksCache.updatedAt, 'No banks cache yet');
+      App.banks = banksCache.banks || bankFallback;
+
+      let aaveCache = readCache(AAVE_KEY);
       if (!aaveCache){
-        try {
-          const { tvl, borrowed } = await fetchAaveHistoryFull();
-          aaveCache = { updatedAt: nowISO(), history: tvl, borrowed };
-        } catch {
-          aaveCache = { updatedAt: nowISO(), history: [], borrowed: [] };
-        }
+        try { aaveCache = { updatedAt: nowISO(), history: await fetchAaveHistory() }; }
+        catch { aaveCache = { updatedAt: nowISO(), history: [] }; }
         writeCache(AAVE_KEY, aaveCache);
       }
+      setBadge('#aaveBadge', aaveCache.updatedAt, 'No aave cache yet');
+      App.tvlHist = aaveCache.history || [];
 
-      setBadge('#banksBadge', banksCache.updatedAt, 'No banks cache yet');
-      setBadge('#aaveBadge',  aaveCache.updatedAt,  'No aave cache yet');
-
-      const banks = banksCache.banks || bankFallback;
-      const tvlHist = aaveCache.history || [];
-      const borHist = aaveCache.borrowed || [];
-
-      const aUSD  = latestFromHistoryUSD(tvlHist, coercePointUSD) ?? null;
-      const bUSD  = latestFromHistoryUSD(borHist, p => typeof p.usd==='number'?p.usd:coerceBorrowedUSD(p));
-
-      const series = computeRankSeriesFull(banks, tvlHist, borHist);
-      if (series.length){
-        $('#rankCard').style.display = 'block';
-        requestAnimationFrame(()=> drawRankChart($('#rankChart'), series));
-      } else {
-        $('#rankCard').style.display = 'none';
-      }
-      setupHover($('#rankChart'), $('#chartWrap'), $('#tooltip'));
-
-      updateKpis(banks, aUSD, bUSD);
-
-      const rankDeltaUp = computeRankDeltaUp(series);
-      renderToday(banks, aUSD, rankDeltaUp);
+      // Chart & series
+      const aUSD = latestFromHistoryUSD(App.tvlHist, coercePointUSD) ?? null;
+      renderEverything(aUSD);
 
       $('#loading').style.display = 'none';
       $('#dataTable').style.display = 'table';
       const ts = banksCache.updatedAt || aaveCache.updatedAt || nowISO();
       $('#lastUpdated').textContent = `Last updated: ${new Date(ts).toLocaleString()}`;
 
+      // interactions
+      setupHover($('#rankChart'), $('#chartWrap'), $('#tooltip'));
       window.addEventListener('resize', () => {
         if (_chartState.series?.length) drawRankChart($('#rankChart'), _chartState.series);
       });
+
+      // toggle events (click + keyboard)
+      const sw = $('#borrowedSwitch');
+      const setSwitch = (on)=>{ sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false'); };
+      const toggle = ()=> { App.includeBorrowed = !App.includeBorrowed; setSwitch(App.includeBorrowed); renderEverything(latestFromHistoryUSD(App.tvlHist, coercePointUSD)); };
+      sw.addEventListener('click', toggle);
+      sw.addEventListener('keydown', (e)=>{ if (e.key===' '||e.key==='Enter'){ e.preventDefault(); toggle(); }});
+      setSwitch(App.includeBorrowed);
+    }
+
+    function renderEverything(latestTVLUSD){
+      const series = computeRankSeries(App.banks, App.tvlHist, App.includeBorrowed);
+      if (series.length){
+        $('#rankCard').style.display = 'block';
+        drawRankChart($('#rankChart'), series);
+      } else {
+        $('#rankCard').style.display = 'none';
+      }
+      const rankDeltaUp = computeRankDeltaUp(series);
+      updateKpis(App.banks, latestTVLUSD, App.includeBorrowed);
+      renderToday(App.banks, latestTVLUSD, App.includeBorrowed, rankDeltaUp);
     }
 
     /* ==== Buttons ==== */
@@ -783,22 +701,8 @@
         writeCache(BANKS_KEY, { updatedAt: stamp, banks });
         setBadge('#banksBadge', stamp, 'No banks cache yet');
 
-        const aCache = readCache(AAVE_KEY) || {};
-        const tvlHist = aCache.history || [];
-        const borHist = aCache.borrowed || [];
-        const aUSD  = latestFromHistoryUSD(tvlHist, coercePointUSD);
-        const bUSD  = latestFromHistoryUSD(borHist, p => typeof p.usd==='number'?p.usd:coerceBorrowedUSD(p));
-
-        const series = computeRankSeriesFull(banks, tvlHist, borHist);
-        if (series.length){
-          $('#rankCard').style.display = 'block';
-          drawRankChart($('#rankChart'), series);
-        }
-        updateKpis(banks, aUSD, bUSD);
-
-        const rankDeltaUp = computeRankDeltaUp(series);
-        renderToday(banks, aUSD, rankDeltaUp);
-
+        App.banks = banks;
+        renderEverything(latestFromHistoryUSD(App.tvlHist, coercePointUSD));
         $('#lastUpdated').textContent = `Last updated: ${new Date(stamp).toLocaleString()} (banks)`;
       }catch(err){
         console.error(err);
@@ -811,33 +715,13 @@
     $('#refreshAave').addEventListener('click', async (e)=>{
       const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Refreshing…';
       try{
-        const { tvl, borrowed } = await fetchAaveHistoryFull();
-        let todayUSD  = latestFromHistoryUSD(tvl, coercePointUSD);
-        if (todayUSD == null){
-          // fallback to /protocols snapshot if tvl series missing today
-          const list = await fetchJSON('https://api.llama.fi/protocols');
-          const a = list.find(p => p.slug === 'aave') || list.find(p => p.slug === 'aave-v3') || list.find(p => p.slug === 'aave-v2');
-          todayUSD = (a && typeof a.tvl === 'number') ? a.tvl : null;
-        }
-
+        const tvl = await fetchAaveHistory();
         const stamp = nowISO();
-        writeCache(AAVE_KEY, { updatedAt: stamp, history: tvl, borrowed });
+        writeCache(AAVE_KEY, { updatedAt: stamp, history: tvl });
         setBadge('#aaveBadge', stamp, 'No aave cache yet');
 
-        const banks = (readCache(BANKS_KEY)||{}).banks || bankFallback;
-
-        const borrowedUSD_latest = latestFromHistoryUSD(borrowed, p => typeof p.usd==='number'?p.usd:coerceBorrowedUSD(p));
-
-        const series = computeRankSeriesFull(banks, tvl, borrowed);
-        if (series.length){
-          $('#rankCard').style.display = 'block';
-          drawRankChart($('#rankChart'), series);
-        }
-        updateKpis(banks, todayUSD, borrowedUSD_latest);
-
-        const rankDeltaUp = computeRankDeltaUp(series);
-        renderToday(banks, todayUSD, rankDeltaUp);
-
+        App.tvlHist = tvl;
+        renderEverything(latestFromHistoryUSD(App.tvlHist, coercePointUSD));
         $('#lastUpdated').textContent = `Last updated: ${new Date(stamp).toLocaleString()} (aave)`;
       }catch(err){
         console.error(err);
