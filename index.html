@@ -6,42 +6,160 @@
   <title>Aave vs Banks</title>
   <style>
     :root{
-      --bg:#9C8CF4; --card:rgba(255,255,255,.06); --card-2:rgba(255,255,255,.08);
-      --highlight:rgba(255,255,255,.22); --text:#ffffff; --up:#31d158; --down:#ff6b6b;
+      --bg:#9C8CF4;
+      --card:rgba(255,255,255,.06);
+      --card-2:rgba(255,255,255,.08);
+      --highlight:rgba(255,255,255,.22);
+      --text:#ffffff;
+      --up:#31d158;
+      --down:#ff6b6b;
     }
     *{box-sizing:border-box}
-    body{margin:0;font-family: Arial, sans-serif;background: var(--bg);color: var(--text);} 
-    .container{max-width:1000px;margin:0 auto;padding:48px 20px 24px;}
-    header h1{font-size: clamp(32px, 5vw, 64px);margin:0 0 10px;}
-    header p{margin:0 0 12px;opacity:.95;font-size: clamp(14px, 1.6vw, 18px);} 
-    .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin: 16px 0 28px;}
-    .btn{appearance:none;border:none;cursor:pointer;padding:10px 16px;border-radius:999px;background: rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.32);color:var(--text);font-weight:700;letter-spacing:.02em;transition: transform .06s ease, opacity .2s ease;}
-    .btn:hover{ transform: translateY(-1px);} .btn:active{ transform: translateY(0);} .btn[disabled]{opacity:.6;cursor:not-allowed;}
+    body{
+      margin:0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .container{
+      max-width:1000px;
+      margin:0 auto;
+      padding:48px 20px 24px;
+    }
+    header h1{
+      font-size: clamp(32px, 5vw, 64px);
+      margin:0 0 10px;
+    }
+    header p{
+      margin:0 0 16px;
+      opacity:.95;
+      font-size: clamp(14px, 1.6vw, 18px);
+    }
 
-    table{width:100%;border-collapse:separate;border-spacing:0;background: var(--card);border-radius:18px;overflow:hidden;}
-    th, td{padding:18px 20px;text-align:left;vertical-align:middle;}
-    th{font-size:14px;letter-spacing:.06em;text-transform:uppercase;opacity:.85;border-bottom:1px solid rgba(255,255,255,.16);} 
-    tr:nth-child(even){background: var(--card-2);} 
-    .highlight{position:relative;background: var(--highlight) !important;font-weight:700;}
-    .highlight::before{content:"";position:absolute;inset:0 auto 0 0;width:6px;background: linear-gradient(180deg, #fff, rgba(255,255,255,.5));}
-    .aave-row.highlight::before{display:none;}
+    .controls{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      margin-bottom:24px;
+      flex-wrap:wrap;
+    }
+    .btn{
+      appearance:none;
+      border:1px solid rgba(255,255,255,.3);
+      background: rgba(255,255,255,.12);
+      color:#fff;
+      padding:10px 14px;
+      border-radius:12px;
+      font-weight:700;
+      cursor:pointer;
+      transition: transform .06s ease, background .2s ease;
+    }
+    .btn:hover{ background: rgba(255,255,255,.18); }
+    .btn:active{ transform: translateY(1px); }
+    .btn[disabled]{ opacity:.6; cursor:not-allowed; }
 
-    /* Special Aave treatment */
-    .aave-row{position:relative;background: linear-gradient(90deg, rgba(255,255,255,.10), rgba(255,255,255,.06)) !important;}
-    .aave-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background: rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);backdrop-filter: blur(2px);font-weight:700;}
-    .aave-badge a{color:inherit;text-decoration:none;}
-    .aave-arrow{display:inline-block;font-size:18px;line-height:1;padding:2px 8px;border-radius:999px;background: rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.28);box-shadow: inset 0 0 10px rgba(255,255,255,.12);} 
-    @keyframes aaveSlide { 0% { transform: translateX(0); } 50% { transform: translateX(4px); } 100% { transform: translateX(0); } }
-    .aave-arrow{animation: aaveSlide 1.6s ease-in-out infinite;}
+    .hint{
+      font-size:12px;
+      opacity:.85;
+    }
 
-    .rank-change{display:none}
-    .info{text-align:center;padding:14px 10px;font-size:14px;opacity:.85;}
-    .loading{text-align:center;padding:40px;opacity:0.7;} 
-    .error{color:#ffedee;text-align:center;padding:20px;font-size:14px;} 
-    .last-updated{text-align:center;margin-top:12px;font-size:12px;opacity:0.7;} 
-    .tagline{margin-top:20px;font-weight:700;letter-spacing:.02em;text-align:center;} 
+    table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      background: var(--card);
+      border-radius:18px;
+      overflow:hidden;
+    }
+    th, td{
+      padding:18px 20px;
+      text-align:left;
+      vertical-align:middle;
+    }
+    th{
+      font-size:14px;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      opacity:.85;
+      border-bottom:1px solid rgba(255,255,255,.16);
+    }
+    tr:nth-child(even){ background: var(--card-2); }
 
-    .ellipsis-row td{ text-align:center; font-weight:800; letter-spacing:.2em; opacity:.9; }
+    .highlight{
+      position:relative;
+      background: var(--highlight) !important;
+      font-weight:700;
+    }
+    .highlight::before{
+      content:"";
+      position:absolute; inset:0 auto 0 0;
+      width:6px;
+      background: linear-gradient(180deg, #fff, rgba(255,255,255,.5));
+    }
+    /* Remove the left white strip for the Aave row only */
+    .aave-row.highlight::before{ display:none; }
+
+    .rank-change{
+      font-weight:800; font-size:14px;
+      padding:4px 8px; border-radius:999px;
+      background: rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.22);
+      margin-left:8px;
+    }
+    .up{ color: var(--up); }
+    .down{ color: var(--down); }
+
+    .aave-row .logo {
+      display: inline-block;
+      width: 72px;
+      height: 72px;
+      margin-right: 0;
+      vertical-align: middle;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      opacity: 0.7;
+    }
+
+    .error {
+      color: #ff6b6b;
+      text-align: center;
+      padding: 20px;
+      font-size: 14px;
+    }
+
+    .last-updated {
+      text-align: center;
+      margin-top: 12px;
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
+    .tagline{
+      margin-top:20px;
+      font-weight:700;
+      letter-spacing:.02em;
+      text-align: center;
+    }
+
+    @media (max-width: 720px){
+      thead{ display:none; }
+      table, tbody, tr, td{ display:block; width:100%; }
+      tr{ padding:12px 14px; }
+      td{
+        padding:8px 6px 8px 120px;
+        position:relative;
+        border-bottom:1px dashed rgba(255,255,255,.18);
+      }
+      td::before{
+        content: attr(data-label);
+        position:absolute; left:14px; top:8px;
+        font-weight:700; opacity:.9;
+      }
+      .highlight::before{ width:4px; }
+    }
   </style>
 </head>
 <body>
@@ -49,14 +167,15 @@
     <header>
       <h1>Aave vs Banks</h1>
       <p>Built in a rush with love by Hoobi</p>
-      <div class="controls">
-        <button id="refreshBtn" class="btn">🔄 Refresh website</button>
-        <span id="dataState" class="info" role="status"></span>
+
+      <div class="controls" role="group" aria-label="data controls">
+        <button id="refreshBtn" class="btn" type="button" aria-live="polite">🔄 Refresh data</button>
+        <span id="refreshHint" class="hint" aria-live="polite"></span>
       </div>
     </header>
 
     <div class="table-container">
-      <div id="loading" class="loading" role="status" aria-live="polite">Loading data...</div>
+      <div id="loading" class="loading" role="status" aria-live="polite">Loading real-time banking data...</div>
       <table id="dataTable" style="display:none;" aria-label="Aave vs Banks ranking">
         <thead>
           <tr>
@@ -75,9 +194,7 @@
   </div>
 
   <script>
-    const CACHE_KEYS = { banks: 'avb:banks', aave: 'avb:aave', ts: 'avb:lastUpdatedISO', aaveMeta: 'avb:aaveMeta', morpho:'avb:morpho', spark:'avb:spark' };
-
-    // ---- Fallback dataset (trimmed Federal Reserve snapshot from earlier) ----
+    // Extended Federal Reserve bank data (fallback dataset)
     const bankData = [
       { name: "JPMORGAN CHASE BK NA", assets: 3643.099 },
       { name: "BANK OF AMER NA", assets: 2615.296 },
@@ -155,234 +272,177 @@
       { name: "AMERIS BK", assets: 26.428 }
     ];
 
-    function formatAssets(amount) { return `$${amount.toFixed(1)} B`; }
+    function formatAssets(amount) {
+      return `$${amount.toFixed(1)} B`;
+    }
 
-    function latestNumberFrom(arr, preferKeys = []){
-      if (!arr || !Array.isArray(arr) || arr.length === 0) return null;
-      const latest = arr[arr.length - 1];
-      if (typeof latest === 'number') return latest;
-      if (latest && typeof latest === 'object'){
-        for (const k of preferKeys){ if (typeof latest[k] === 'number') return latest[k]; }
-        for (const [,v] of Object.entries(latest)){
-          if (typeof v === 'number') return v;
+    function generateRankChange() {
+      const up = Math.random() > 0.5;
+      const places = Math.floor(Math.random() * 4) + 1; // 1–4 places
+      return { direction: up ? 'up' : 'down', places, symbol: up ? '▲' : '▼' };
+    }
+
+    async function fetchAaveTVL() {
+      try {
+        const response = await fetch('https://api.llama.fi/protocol/aave', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        if (data && data.tvl && data.tvl.length > 0) {
+          const latest = data.tvl[data.tvl.length - 1];
+          const tvl = latest.totalLiquidityUSD ?? latest.totalLiquidityUsd ?? latest.totalLiquidity;
+          if (typeof tvl === 'number') return tvl / 1_000_000_000; // to billions
         }
+      } catch (e) {
+        console.error('Error fetching Aave data:', e);
       }
       return null;
     }
 
-    async function fetchJSON(url){ const r = await fetch(url, { cache:'no-store' }); if(!r.ok) throw new Error('bad '+url); return r.json(); }
+    async function fetchBankData() {
+      try {
+        const proxyUrl = 'https://api.allorigins.win/get?url=';
+        const targetUrl = encodeURIComponent('https://www.federalreserve.gov/releases/lbr/current/');
+        const response = await fetch(proxyUrl + targetUrl, { cache: 'no-store' });
+        if (!response.ok) throw new Error('Failed to fetch bank data');
 
-    // -------- Aave Full Value (Adjusted): TVL + Borrowed − $2B --------
-    async function fetchAaveFullValue(){
-      try{
-        const d = await fetchJSON('https://api.llama.fi/protocol/aave');
-        let tvlUsd = Array.isArray(d.tvl) ? latestNumberFrom(d.tvl, ['totalLiquidityUSD','totalLiquidityUsd','tvl']) : null;
-        let borrowedUsd = Array.isArray(d.borrowed) ? latestNumberFrom(d.borrowed, ['borrowed','totalBorrowedUSD','totalBorrowedUsd','totalBorrows']) : null;
+        const proxyData = await response.json();
+        const htmlContent = proxyData.contents;
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlContent, 'text/html');
 
-        if ((tvlUsd==null || borrowedUsd==null) && d.chainTvls){
-          let tvlSum=0, tF=false, borSum=0, bF=false;
-          for(const chain of Object.values(d.chainTvls)){
-            const cTVL = latestNumberFrom(chain.tvl, ['tvl','totalLiquidityUSD','totalLiquidityUsd']); if (typeof cTVL==='number'){ tvlSum+=cTVL; tF=true; }
-            const cBor = latestNumberFrom(chain.borrowed || chain.borrows, ['borrowed','totalBorrowedUSD','totalBorrowedUsd','totalBorrows']); if (typeof cBor==='number'){ borSum+=cBor; bF=true; }
+        const rows = doc.querySelectorAll('tr');
+        const extractedBanks = [];
+
+        for (let row of rows) {
+          const cells = row.querySelectorAll('td');
+          if (cells.length >= 6) {
+            const bankName = cells[0]?.textContent?.trim() || '';
+            const assets = cells[5]?.textContent?.trim() || '';
+            if ((bankName.includes('BK') || bankName.includes('BANK')) && assets) {
+              const assetsNum = parseFloat(assets.replace(/[^0-9.]/g, ''));
+              if (!isNaN(assetsNum) && assetsNum > 100) {
+                extractedBanks.push({
+                  name: bankName.split('/')[0].trim(),
+                  assets: assetsNum / 1000 // millions → billions
+                });
+              }
+            }
           }
-          if(tvlUsd==null && tF) tvlUsd = tvlSum;
-          if(borrowedUsd==null && bF) borrowedUsd = borSum;
         }
-
-        // Apply custom formula: TVL + Borrowed − $2B
-        const adjustedUsd = (tvlUsd||0) + (borrowedUsd||0) - 2e9;
-        const fullValueB = Math.max(0, adjustedUsd) / 1e9;
-
-        return { valueB: fullValueB, meta:{ tvlUsd, borrowedUsd, adjustmentUsd: -2e9 } };
-      }catch(e){
-        console.error('Aave fetch failed', e);
-        return { valueB: null, meta:{ tvlUsd:null, borrowedUsd:null, adjustmentUsd: -2e9 } };
+        return extractedBanks.sort((a,b)=>b.assets-a.assets).slice(0, 50);
+      } catch (error) {
+        console.error('Error fetching bank data:', error);
+        return bankData;
       }
     }
 
-    async function fetchProtocolTVLBillions(slugs){
-      for(const slug of slugs){
-        try{
-          const d = await fetchJSON('https://api.llama.fi/protocol/'+slug);
-          const tvlUsd = Array.isArray(d.tvl) ? latestNumberFrom(d.tvl, ['tvl','totalLiquidityUSD','totalLiquidityUsd']) : null;
-          if (typeof tvlUsd === 'number') return tvlUsd/1e9;
-        }catch(e){ /* try next */ }
-      }
-      return null;
-    }
-
-    async function fetchBankData(){
-      // Keep fallback for now to avoid CORS parsing complexity here; previous version had HTML scraping.
-      return bankData;
-    }
-
-    function buildDisplayIndices(sorted, targets, window=3){
-      // targets: array of indexes to ensure visibility
-      const idxs = new Set();
-      const n = sorted.length;
-      for(const t of targets){
-        for(let i=Math.max(0,t-window); i<=Math.min(n-1,t+window); i++) idxs.add(i);
-      }
-      const list = Array.from(idxs).sort((a,b)=>a-b);
-      // create blocks with ellipsis gaps
-      const blocks = [];
-      for(let i=0;i<list.length;i++){
-        const cur=list[i], prev=list[i-1];
-        if(i>0 && cur!==prev+1) blocks.push('...');
-        blocks.push(cur);
-      }
-      return blocks;
-    }
-
-    function renderTable(allBanks, aaveB, aaveMeta, morphoB, sparkB){
+    function renderTable(allBanks, aaveTVL) {
       const tableBody = document.getElementById('tableBody');
       tableBody.innerHTML = '';
 
-      const rows = [...allBanks];
-      const AAVE = { name:'Aave', assets:aaveB??12.5, isAave:true };
-      const MORPHO = { name:'Morpho', assets:morphoB??null, isMorpho:true };
-      const SPARK = { name:'Spark', assets:sparkB??null, isSpark:true };
-      // Only include protocols we have a number for; keep Aave always
-      const protocols = [AAVE];
-      if (typeof MORPHO.assets === 'number') protocols.push(MORPHO);
-      if (typeof SPARK.assets === 'number') protocols.push(SPARK);
+      const combinedData = [...allBanks];
+      combinedData.push({ name: "Aave", assets: aaveTVL ?? 12.5, isAave: true });
 
-      const combined = rows.concat(protocols).sort((a,b)=> (b.assets??-Infinity) - (a.assets??-Infinity));
+      const sortedData = combinedData.sort((a, b) => b.assets - a.assets);
+      const aaveIndex = sortedData.findIndex(item => item.isAave);
 
-      const idxA = combined.findIndex(x=>x.isAave);
-      const idxM = combined.findIndex(x=>x.isMorpho);
-      const idxS = combined.findIndex(x=>x.isSpark);
-      const targetIdxs = [idxA, idxM, idxS].filter(i=>i>=0);
-      const display = buildDisplayIndices(combined, targetIdxs, 3);
+      const startIndex = Math.max(0, aaveIndex - 4);
+      const endIndex = Math.min(sortedData.length - 1, aaveIndex + 5);
+      const displayData = sortedData.slice(startIndex, endIndex + 1);
 
-      function nameCell(item){
-        if(item.isAave){
-          return `<span class="logo" aria-hidden="true"><img src="aave.svg" alt="Aave logo" style="width:72px;height:72px;vertical-align:middle"></span>
-                  <span class="aave-badge"><span class="aave-arrow" aria-hidden="true">➜</span> <a href="https://app.aave.com/" target="_blank" rel="noopener">deposit now</a></span>`;
-        }
-        return item.name;
-      }
+      displayData.forEach((item, index) => {
+        const actualRank = startIndex + index + 1;
+        const change = generateRankChange();
+        const isAave = !!item.isAave;
 
-      for(const entry of display){
-        if(entry==='...'){
-          const tr=document.createElement('tr'); tr.className='ellipsis-row';
-          tr.innerHTML = `<td colspan="3">…</td>`; tableBody.appendChild(tr); continue;
-        }
-        const item = combined[entry];
-        const tr = document.createElement('tr');
-        if (item.isAave) tr.className = 'aave-row highlight';
-        const rank = entry+1;
-        tr.innerHTML = `<td data-label="Rank">${rank}</td>
-                        <td data-label="Name">${nameCell(item)}</td>
-                        <td data-label="Assets" title="Banks: Total Assets; Aave: TVL+Borrowed−$2B; Others: TVL">${formatAssets(item.assets)}</td>`;
-        tableBody.appendChild(tr);
-      }
+        const row = document.createElement('tr');
+        if (isAave) row.className = 'aave-row highlight';
 
-      const info = document.getElementById('error');
-      const parts=[];
-      if (aaveMeta && (aaveMeta.tvlUsd!=null || aaveMeta.borrowedUsd!=null)){
-        const tvlB = aaveMeta.tvlUsd!=null ? (aaveMeta.tvlUsd/1e9).toFixed(1) : '—';
-        const borB = aaveMeta.borrowedUsd!=null ? (aaveMeta.borrowedUsd/1e9).toFixed(1) : '—';
-        const aaveFinalB = typeof aaveB==='number' ? aaveB.toFixed(1) : '—';
-        parts.push(`Aave: TVL $${tvlB}B + Borrowed $${borB}B − $2.0B = $${aaveFinalB}B`);
-      }
-      if (typeof morphoB==='number') parts.push(`Morpho TVL: $${morphoB.toFixed(1)}B`);
-      if (typeof sparkB==='number') parts.push(`Spark TVL: $${sparkB.toFixed(1)}B`);
-      info.textContent = parts.join(' · ');
-      info.style.display = 'block'; info.style.color = '#ffffff'; info.style.opacity = '0.85';
-    }
+        const nameCellContent = isAave
+          ? `
+            <span class="logo" aria-hidden="true">
+              <img src="aave.svg" alt="Aave logo" style="width:150px; height:72px; vertical-align:middle;">
+            </span>
+          `
+          : item.name;
 
-    function setLastUpdated(tsISO, labelSuffix = '') {
-      const el = document.getElementById('lastUpdated');
-      const d = tsISO ? new Date(tsISO) : new Date();
-      el.textContent = `Last updated: ${d.toLocaleString()}${labelSuffix}`;
-    }
-
-    function saveCache(banks, aave, tsISO, aaveMeta, morpho, spark) {
-      localStorage.setItem(CACHE_KEYS.banks, JSON.stringify(banks));
-      localStorage.setItem(CACHE_KEYS.aave, JSON.stringify(aave));
-      localStorage.setItem(CACHE_KEYS.aaveMeta, JSON.stringify(aaveMeta||null));
-      localStorage.setItem(CACHE_KEYS.morpho, JSON.stringify(morpho));
-      localStorage.setItem(CACHE_KEYS.spark, JSON.stringify(spark));
-      localStorage.setItem(CACHE_KEYS.ts, tsISO);
-    }
-
-    function readCache() {
-      try {
-        const banks = JSON.parse(localStorage.getItem(CACHE_KEYS.banks) || 'null');
-        const aave = JSON.parse(localStorage.getItem(CACHE_KEYS.aave) || 'null');
-        const aaveMeta = JSON.parse(localStorage.getItem(CACHE_KEYS.aaveMeta) || 'null');
-        const morpho = JSON.parse(localStorage.getItem(CACHE_KEYS.morpho) || 'null');
-        const spark = JSON.parse(localStorage.getItem(CACHE_KEYS.spark) || 'null');
-        const ts = localStorage.getItem(CACHE_KEYS.ts);
-        if (banks && Array.isArray(banks) && typeof aave === 'number' && ts) {
-          return { banks, aave, ts, aaveMeta, morpho, spark };
-        }
-      } catch {}
-      return null;
-    }
-
-    async function loadData(){
-      const btn = document.getElementById('refreshBtn');
-      const state = document.getElementById('dataState');
-      try{
-        if(btn) btn.disabled = true; if(state) state.textContent = 'Refreshing…';
-        document.getElementById('loading').style.display='block';
-        document.getElementById('dataTable').style.display='none';
-        document.getElementById('error').style.display='none';
-
-        const [banks, aaveRes, morphoB, sparkB] = await Promise.all([
-          fetchBankData(),
-          fetchAaveFullValue(),
-          fetchProtocolTVLBillions(['morpho','morpho-blue']),
-          fetchProtocolTVLBillions(['spark','spark-protocol','spark-lend'])
-        ]);
-
-        const allBanks = banks.length>20 ? banks : bankData;
-        renderTable(allBanks, aaveRes.valueB ?? 12.5, aaveRes.meta, morphoB, sparkB);
-
-        document.getElementById('loading').style.display='none';
-        document.getElementById('dataTable').style.display='table';
-        const nowISO = new Date().toISOString();
-        setLastUpdated(nowISO);
-        saveCache(allBanks, (aaveRes.valueB ?? 12.5), nowISO, aaveRes.meta, morphoB, sparkB);
-        if(state) state.textContent = 'Up to date';
-      }catch(e){
-        console.error('Error loading data', e);
-        renderTable(bankData, 12.5, null, null, null);
-        document.getElementById('loading').style.display='none';
-        document.getElementById('dataTable').style.display='table';
-        setLastUpdated(null, ' (Fallback Data)');
-        if(state) state.textContent = 'Using fallback data';
-      }finally{ if(btn) btn.disabled=false; }
-    }
-
-    document.addEventListener('DOMContentLoaded', ()=>{
-      const cached = readCache();
-      const loading = document.getElementById('loading');
-      const table = document.getElementById('dataTable');
-      const state = document.getElementById('dataState');
-
-      if (cached) {
-        renderTable(cached.banks, cached.aave, cached.aaveMeta, cached.morpho, cached.spark);
-        loading.style.display='none'; table.style.display='table'; setLastUpdated(cached.ts, ' (cached)');
-        if (state) state.textContent = 'Showing cached data';
-      } else {
-        if (state) state.textContent = 'First load';
-        loadData();
-      }
-
-      document.getElementById('refreshBtn').addEventListener('click', async () => {
-        const btn = document.getElementById('refreshBtn');
-        const state = document.getElementById('dataState');
-        try {
-          btn.disabled = true; state.textContent = 'Updating data…';
-          await loadData(); btn.disabled = true; state.textContent = 'Data saved. Reloading…';
-        } catch (e) { console.error(e); state.textContent = 'Update failed, reloading anyway…'; }
-        setTimeout(() => { const url = new URL(window.location.href); url.searchParams.set('t', Date.now().toString()); window.location.replace(url.toString()); }, 500);
+        row.innerHTML = `
+          <td data-label="Rank">${actualRank}
+            <span class="rank-change ${change.direction}" aria-label="rank change ${change.direction} by ${change.places}">
+              ${change.symbol} ${change.places}
+            </span>
+          </td>
+          <td data-label="Name">${nameCellContent}</td>
+          <td data-label="Assets">${formatAssets(item.assets)}</td>
+        `;
+        tableBody.appendChild(row);
       });
+
+      const aaveRank = aaveIndex + 1;
+      const msg = `Showing Aave (rank ${aaveRank}) with 4 banks above and 5 banks below. Total institutions: ${sortedData.length}`;
+      const info = document.getElementById('error');
+      info.textContent = msg;
+      info.style.display = 'block';
+      info.style.color = '#ffffff';
+      info.style.opacity = '0.8';
+    }
+
+    async function loadData() {
+      try {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('dataTable').style.display = 'none';
+        document.getElementById('error').style.display = 'none';
+
+        const [banks, aaveTVL] = await Promise.all([fetchBankData(), fetchAaveTVL()]);
+        const allBanks = banks.length > 20 ? banks : bankData;
+
+        renderTable(allBanks, aaveTVL ?? 12.5);
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('dataTable').style.display = 'table';
+
+        const now = new Date();
+        document.getElementById('lastUpdated').textContent = `Last updated: ${now.toLocaleString()}`;
+      } catch (error) {
+        console.error('Error loading data:', error);
+        renderTable(bankData, 12.5);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('dataTable').style.display = 'table';
+        const now = new Date();
+        document.getElementById('lastUpdated').textContent = `Last updated: ${now.toLocaleString()} (Fallback Data)`;
+      }
+    }
+
+    function setupRefresh() {
+      const btn = document.getElementById('refreshBtn');
+      const hint = document.getElementById('refreshHint');
+
+      btn.addEventListener('click', async () => {
+        // reset hint immediately
+        hint.textContent = '';
+        btn.disabled = true;
+        const original = btn.textContent;
+        btn.textContent = 'Refreshing…';
+
+        await loadData();
+
+        btn.textContent = original;
+        btn.disabled = false;
+
+        // After a couple of seconds, show the hint text
+        setTimeout(() => {
+          hint.textContent = 'You might need to refresh.';
+        }, 2500);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      setupRefresh();
+      await loadData(); // load latest on open
     });
+
+    // ❌ No auto/timed refreshes
+    // (Removed setInterval)
   </script>
 </body>
 </html>
-```
