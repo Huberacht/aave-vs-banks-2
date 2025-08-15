@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Aave vs Banks — charted</title>
+  <title>Aave vs Banks — full history + hover</title>
   <style>
     :root{
       --bg:#9C8CF4;
@@ -15,6 +15,8 @@
       --up:#31d158;
       --line: rgba(255,255,255,.96);
       --grid: rgba(255,255,255,.14);
+      --tooltipBg: rgba(15, 10, 30, .92);
+      --tooltipBorder: rgba(255,255,255,.2);
     }
     *{ box-sizing:border-box }
     body{ margin:0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
@@ -52,7 +54,7 @@
       background:#fff; color:var(--ink); text-decoration:none;
       border-radius:999px; padding:8px 12px; font-weight:800;
       box-shadow:0 6px 18px rgba(0,0,0,.15);
-      margin-left:80px; /* move 80px to the right */
+      margin-left:80px; /* as requested */
     }
     .moving-arrow{
       display:inline-block; font-size:18px; color:var(--up);
@@ -85,7 +87,25 @@
       opacity:.9;
     }
     .chart-wrap{ width:100%; position:relative; }
-    canvas{ width:100%; height:240px; display:block; }
+    canvas{ width:100%; height:260px; display:block; }
+
+    /* Tooltip */
+    .tooltip{
+      position:absolute;
+      pointer-events:none;
+      background: var(--tooltipBg);
+      color:#fff;
+      border:1px solid var(--tooltipBorder);
+      border-radius:10px;
+      padding:8px 10px;
+      font-size:12px;
+      box-shadow:0 8px 24px rgba(0,0,0,.25);
+      transform: translate(-50%, -110%);
+      white-space:nowrap;
+      display:none;
+      z-index:2;
+    }
+    .tooltip .muted{ opacity:.8; }
 
     @media (max-width: 720px){
       thead{ display:none; }
@@ -98,7 +118,7 @@
       td::before{ content: attr(data-label); position:absolute; left:14px; top:8px; font-weight:700; opacity:.9; }
       .highlight::before{ width:4px; }
       .aave-row .aave-wrap{ align-items:flex-start; }
-      canvas{ height:220px; }
+      canvas{ height:240px; }
     }
   </style>
 </head>
@@ -150,9 +170,10 @@
 
     <!-- Chart -->
     <div class="card" id="rankCard" style="display:none;">
-      <h3>Aave rank (last 365 days)</h3>
-      <div class="chart-wrap">
-        <canvas id="rankChart" aria-label="Aave daily rank over last 365 days" role="img"></canvas>
+      <h3>Aave rank (full history)</h3>
+      <div class="chart-wrap" id="chartWrap">
+        <canvas id="rankChart" aria-label="Aave daily rank over full history" role="img"></canvas>
+        <div class="tooltip" id="tooltip"></div>
       </div>
     </div>
 
@@ -161,9 +182,9 @@
   </div>
 
   <script>
-    /* ============ Keys / constants ============ */
-    const BANKS_KEY = 'banksCacheV4';
-    const AAVE_KEY  = 'aaveHistCacheV4';
+    /* ==== Keys / constants ==== */
+    const BANKS_KEY = 'banksCacheV5';
+    const AAVE_KEY  = 'aaveHistCacheV5';
     const AAVE_FALLBACK_B = 12.5;
 
     const bankFallback = [
@@ -179,7 +200,7 @@
       { name: "STATE STREET B&TC", assets: 368.219 }
     ];
 
-    /* ============ Utils ============ */
+    /* ==== Utils ==== */
     const $ = sel => document.querySelector(sel);
     const nowISO = () => new Date().toISOString();
     const formatB = v => `$${v.toFixed(1)} B`;
@@ -189,8 +210,7 @@
     function downloadJSON(obj, filename){
       const blob = new Blob([JSON.stringify(obj, null, 2)], { type:'application/json' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
     async function fetchJSON(url){
       const r = await fetch(url, { cache:'no-store' });
@@ -198,11 +218,10 @@
       return r.json();
     }
 
-    /* ============ Banks (fast ASCII) ============ */
+    /* ==== Banks (fast ASCII) ==== */
     async function fetchBanksFast(){
       const asciiURL = 'https://www.federalreserve.gov/releases/lbr/current/lrg_bnk_lst.txt';
       const via = u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`;
-
       const res = await fetch(via(asciiURL), { cache:'no-store' });
       if (!res.ok) throw new Error(`banks ASCII HTTP ${res.status}`);
       const text = await res.text();
@@ -213,7 +232,6 @@
         const line = raw.trim();
         if (!line) continue;
         if (/^[A-Z \/\-]+$/.test(line) && !/\d/.test(line)) continue;
-
         const cols = line.split(/\s{2,}/);
         if (cols.length < 6) continue;
 
@@ -223,12 +241,12 @@
         if (!Number.isFinite(assetsMil)) continue;
 
         out.push({ name, assets: assetsMil / 1000 });
-        if (out.length >= 60) break;
+        if (out.length >= 80) break; // a bit deeper for rank stability
       }
       return out.length ? out.sort((a,b)=>b.assets-a.assets) : bankFallback;
     }
 
-    /* ============ Aave history ============ */
+    /* ==== Aave history helpers ==== */
     function coercePointUSD(x){
       if (typeof x === 'number') return x;
       if (x && typeof x === 'object'){
@@ -266,72 +284,88 @@
       }catch{ return null; }
     }
 
-    /* ============ Rank series + chart ============ */
-    function computeDailyRankSeries(banks, aaveHist, days=365){
+    /* ==== Rank series (FULL history) ==== */
+    // Returns [{ t:Date, tvlB:Number, rank:Number }]
+    function computeRankSeriesFull(banks, aaveHist){
       const bankAssetsB = [...banks].map(b => b.assets).sort((a,b)=>b-a);
-      const N = aaveHist?.length || 0;
-      if (!N) return [];
+
+      // Build points with dates (or synthesize evenly if none present)
       const today = new Date();
       let pts = [];
-
-      for (let i=0;i<N;i++){
+      for (let i=0;i<(aaveHist?.length||0);i++){
         const p = aaveHist[i];
         const usd = coercePointUSD(p);
         if (typeof usd !== 'number') continue;
         const d = extractPointDate(p, null);
         pts.push({ date: d, tvlB: usd / 1e9 });
       }
-
       if (!pts.length) return [];
+
       if (pts.every(pt => !pt.date)) {
-        // synthesize dates for last `days` points
-        pts = pts.slice(-days);
-        for (let i=0;i<pts.length;i++){
+        // synthesize daily spacing ending today
+        const n = pts.length;
+        for (let i=0;i<n;i++){
           const d = new Date(today);
-          d.setDate(d.getDate() - (pts.length - 1 - i));
+          d.setDate(d.getDate() - (n - 1 - i));
           pts[i].date = d;
         }
       } else {
         pts = pts.filter(pt => pt.date instanceof Date && !isNaN(+pt.date))
-                 .sort((a,b)=>a.date - b.date)
-                 .slice(-days);
+                 .sort((a,b)=>a.date - b.date);
       }
 
-      return pts.map(pt => {
-        let above = 0;
-        for (let i=0;i<bankAssetsB.length;i++){
-          if (bankAssetsB[i] > pt.tvlB) above++; else break;
+      // Collapse same-day duplicates: keep last value per day
+      const byDay = new Map();
+      for (const pt of pts){
+        const key = pt.date.toISOString().slice(0,10); // YYYY-MM-DD
+        byDay.set(key, pt); // last one wins
+      }
+      const dedup = Array.from(byDay.values()).sort((a,b)=>a.date - b.date);
+
+      // Compute rank for each day
+      const series = dedup.map(pt => {
+        // count how many banks have assets strictly greater than Aave TVL
+        let lo = 0, hi = bankAssetsB.length; // binary search (desc array)
+        while (lo < hi){
+          const mid = (lo + hi) >> 1;
+          if (bankAssetsB[mid] > pt.tvlB) lo = mid + 1; else hi = mid;
         }
-        return { t: pt.date, rank: above + 1 };
+        const above = lo; // number of banks > Aave
+        return { t: pt.date, tvlB: pt.tvlB, rank: above + 1 };
       });
+
+      return series;
     }
+
+    /* ==== Chart drawing + interactivity ==== */
+    let _chartState = { series: [], scales: null };
 
     function drawRankChart(canvas, series){
       if (!canvas || !series?.length) return;
 
       const DPR = Math.max(1, Math.floor(window.devicePixelRatio || 1));
       const cssW = canvas.clientWidth || 600;
-      const cssH = canvas.clientHeight || 240;
+      const cssH = canvas.clientHeight || 260;
       const W = Math.max(320, Math.floor(cssW * DPR));
-      const H = Math.max(160, Math.floor(cssH * DPR));
+      const H = Math.max(180, Math.floor(cssH * DPR));
       canvas.width = W;
       canvas.height = H;
 
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0,0,W,H);
 
-      const PAD_L = 46, PAD_R = 12, PAD_T = 16, PAD_B = 28;
+      const PAD_L = 50, PAD_R = 14, PAD_T = 18, PAD_B = 34;
       const plotW = W - PAD_L - PAD_R;
       const plotH = H - PAD_T - PAD_B;
 
+      // y domain (ranks): smaller is better -> higher on canvas
       let minR = Infinity, maxR = -Infinity;
       for (const s of series){ if (s.rank < minR) minR = s.rank; if (s.rank > maxR) maxR = s.rank; }
-      if (!isFinite(minR) || !isFinite(maxR)) return;
       if (minR === maxR){ minR = Math.max(1, minR-1); maxR = maxR+1; }
 
       const t0 = series[0].t.getTime();
       const t1 = series[series.length-1].t.getTime();
-      const dt = t1 - t0 || 1;
+      const dt = Math.max(1, t1 - t0);
 
       const x = (t) => PAD_L + ((t - t0) / dt) * plotW;
       const y = (r) => PAD_T + ((r - minR) / (maxR - minR)) * plotH;
@@ -339,23 +373,37 @@
       const grid = getComputedStyle(document.documentElement).getPropertyValue('--grid');
       const line = getComputedStyle(document.documentElement).getPropertyValue('--line');
 
-      ctx.strokeStyle = grid;
-      ctx.lineWidth = Math.max(1, DPR);
+      // horizontal grid (min/mid/max)
+      ctx.strokeStyle = grid; ctx.lineWidth = Math.max(1, DPR);
       const yMin = y(minR), yMax = y(maxR), yMid = y((minR+maxR)/2);
       ctx.beginPath(); ctx.moveTo(PAD_L, yMin); ctx.lineTo(W-PAD_R, yMin); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(PAD_L, yMid); ctx.lineTo(W-PAD_R, yMid); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(PAD_L, yMax); ctx.lineTo(W-PAD_R, yMax); ctx.stroke();
 
+      // axis labels
       ctx.fillStyle = 'rgba(255,255,255,.9)';
       ctx.font = `${12*DPR}px Arial`;
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
       ctx.fillText(`#${Math.round(minR)}`, PAD_L - 8, yMin);
       ctx.fillText(`#${Math.round(maxR)}`, PAD_L - 8, yMax);
 
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
       const fmt = (d)=>d.toLocaleDateString(undefined,{year:'2-digit',month:'short',day:'2-digit'});
-      ctx.textAlign = 'left';  ctx.textBaseline = 'top'; ctx.fillText(fmt(series[0].t), PAD_L, H - PAD_B + 6*DPR);
-      ctx.textAlign = 'right'; ctx.fillText(fmt(series[series.length-1].t), W - PAD_R, H - PAD_B + 6*DPR);
+      ctx.fillText(fmt(series[0].t), PAD_L, H - PAD_B + 6*DPR);
+      ctx.textAlign = 'right';
+      ctx.fillText(fmt(series[series.length-1].t), W - PAD_R, H - PAD_B + 6*DPR);
+
+      // main line (glow underlay then line)
+      ctx.strokeStyle = 'rgba(255,255,255,.35)';
+      ctx.lineWidth = Math.max(6, 6*DPR);
+      ctx.globalAlpha = .35;
+      ctx.beginPath();
+      for (let i=0;i<series.length;i++){
+        const px = x(series[i].t.getTime()), py = y(series[i].rank);
+        if (i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
 
       ctx.strokeStyle = line;
       ctx.lineWidth = Math.max(2, 2*DPR);
@@ -363,38 +411,106 @@
       ctx.lineCap = 'round';
       ctx.beginPath();
       for (let i=0;i<series.length;i++){
-        const px = x(series[i].t.getTime());
-        const py = y(series[i].rank);
+        const px = x(series[i].t.getTime()), py = y(series[i].rank);
         if (i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
       }
       ctx.stroke();
 
-      ctx.strokeStyle = 'rgba(255,255,255,.35)';
-      ctx.lineWidth = Math.max(6, 6*DPR);
-      ctx.globalAlpha = .35;
-      ctx.beginPath();
-      for (let i=0;i<series.length;i++){
-        const px = x(series[i].t.getTime());
-        const py = y(series[i].rank);
-        if (i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-      }
-      ctx.stroke();
-      ctx.globalAlpha = 1;
+      // save scales for hover
+      _chartState.series = series;
+      _chartState.scales = {PAD_L, PAD_R, PAD_T, PAD_B, W, H, plotW, plotH, t0, t1, minR, maxR, DPR, x, y};
     }
 
-    function rebuildChart(banks, aaveHist){
-      const series = computeDailyRankSeries(banks, aaveHist, 365);
-      const card = $('#rankCard');
-      if (!series.length){
-        card.style.display = 'none';
-        return;
+    function setupHover(canvas, wrapEl, tooltip){
+      function showTooltip(ix){
+        const { series, scales } = _chartState;
+        if (!series?.length || !scales) return;
+
+        ix = Math.max(0, Math.min(series.length-1, ix));
+        const p = series[ix];
+
+        // screen coords
+        const px = scales.x(p.t.getTime());
+        const py = scales.y(p.rank);
+
+        // tvl as USD
+        const tvlUSD = p.tvlB * 1e9;
+        const tvlFmt = `$${tvlUSD.toLocaleString(undefined,{maximumFractionDigits:0})}`;
+
+        tooltip.innerHTML = `
+          <div><strong>${p.t.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'2-digit'})}</strong></div>
+          <div class="muted">TVL</div>
+          <div>${tvlFmt}</div>
+          <div class="muted">Rank</div>
+          <div>#${p.rank}</div>
+        `;
+        tooltip.style.left = `${px / scales.DPR}px`;
+        tooltip.style.top  = `${py / scales.DPR}px`;
+        tooltip.style.display = 'block';
+
+        // redraw with a vertical guide + point marker
+        drawRankChart(canvas, series);
+        const ctx = canvas.getContext('2d');
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,.5)';
+        ctx.lineWidth = Math.max(1, 1*scales.DPR);
+        ctx.setLineDash([4*scales.DPR, 4*scales.DPR]);
+        ctx.beginPath(); ctx.moveTo(px, scales.PAD_T); ctx.lineTo(px, scales.H - scales.PAD_B); ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(px, py, 3.5*scales.DPR, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
       }
-      card.style.display = 'block';
-      // ensure the card is visible before measuring canvas width
-      requestAnimationFrame(() => drawRankChart($('#rankChart'), series));
+
+      function hideTooltip(){
+        tooltip.style.display = 'none';
+        if (_chartState.series?.length) drawRankChart(canvas, _chartState.series);
+      }
+
+      function nearestIndexAt(clientX){
+        const { series, scales } = _chartState;
+        if (!series?.length || !scales) return 0;
+        // convert clientX to canvas x in device pixels
+        const rect = canvas.getBoundingClientRect();
+        const cx = (clientX - rect.left) * (canvas.width / rect.width);
+        const tMouse = scales.t0 + ((cx - scales.PAD_L) / Math.max(1, scales.plotW)) * (scales.t1 - scales.t0);
+
+        // binary search nearest by time
+        let lo=0, hi=series.length-1;
+        while (lo<hi){
+          const mid=(lo+hi)>>1;
+          if (series[mid].t.getTime() < tMouse) lo=mid+1; else hi=mid;
+        }
+        let idx = lo;
+        // check left neighbor for closer
+        if (idx>0){
+          const d1 = Math.abs(series[idx].t - tMouse);
+          const d0 = Math.abs(series[idx-1].t - tMouse);
+          if (d0 < d1) idx = idx-1;
+        }
+        return idx;
+      }
+
+      wrapEl.addEventListener('mousemove', (ev)=>{
+        const idx = nearestIndexAt(ev.clientX);
+        showTooltip(idx);
+      });
+      wrapEl.addEventListener('mouseleave', hideTooltip);
+      wrapEl.addEventListener('touchstart', (ev)=>{
+        if (!ev.touches?.length) return;
+        const idx = nearestIndexAt(ev.touches[0].clientX);
+        showTooltip(idx);
+      }, {passive:true});
+      wrapEl.addEventListener('touchmove', (ev)=>{
+        if (!ev.touches?.length) return;
+        const idx = nearestIndexAt(ev.touches[0].clientX);
+        showTooltip(idx);
+      }, {passive:true});
+      wrapEl.addEventListener('touchend', hideTooltip);
     }
 
-    /* ============ Today table ============ */
+    /* ==== Today table ==== */
     function renderToday(banks, aaveUSD_or_null){
       const tbody = $('#tableBody');
       tbody.innerHTML = '';
@@ -438,25 +554,21 @@
       msg.textContent = `Showing Aave (rank ${idx+1}) vs banks • Today only`;
     }
 
-    /* ============ Boot ============ */
+    /* ==== Boot ==== */
     async function boot(){
       let banksCache = readCache(BANKS_KEY);
       let aaveCache  = readCache(AAVE_KEY);
 
-      // If missing, auto-fetch so the chart is available on first load
+      // ensure we have data on first load
       if (!banksCache){
-        try {
-          const banks = await fetchBanksFast();
-          banksCache = { updatedAt: nowISO(), banks };
-          writeCache(BANKS_KEY, banksCache);
-        } catch { banksCache = { updatedAt: nowISO(), banks: bankFallback }; }
+        try { banksCache = { updatedAt: nowISO(), banks: await fetchBanksFast() }; }
+        catch { banksCache = { updatedAt: nowISO(), banks: bankFallback }; }
+        writeCache(BANKS_KEY, banksCache);
       }
       if (!aaveCache){
-        try {
-          const history = await fetchAaveHistory();
-          aaveCache = { updatedAt: nowISO(), history };
-          writeCache(AAVE_KEY, aaveCache);
-        } catch { aaveCache = { updatedAt: nowISO(), history: [] }; }
+        try { aaveCache = { updatedAt: nowISO(), history: await fetchAaveHistory() }; }
+        catch { aaveCache = { updatedAt: nowISO(), history: [] }; }
+        writeCache(AAVE_KEY, aaveCache);
       }
 
       setBadge('#banksBadge', banksCache.updatedAt, 'No banks cache yet');
@@ -467,7 +579,19 @@
       const aUSD  = latestFromHistoryUSD(aHist) ?? null;
 
       renderToday(banks, aUSD);
-      rebuildChart(banks, aHist);
+
+      // Build FULL history rank series + draw
+      const series = computeRankSeriesFull(banks, aHist);
+      const card = $('#rankCard');
+      if (series.length){
+        card.style.display = 'block';
+        requestAnimationFrame(()=> drawRankChart($('#rankChart'), series));
+      } else {
+        card.style.display = 'none';
+      }
+
+      // setup hover (once)
+      setupHover($('#rankChart'), $('#chartWrap'), $('#tooltip'));
 
       $('#loading').style.display = 'none';
       $('#dataTable').style.display = 'table';
@@ -475,10 +599,12 @@
       $('#lastUpdated').textContent = `Last updated: ${new Date(ts).toLocaleString()}`;
 
       // responsive redraw
-      window.addEventListener('resize', () => rebuildChart(banks, aHist));
+      window.addEventListener('resize', () => {
+        if (_chartState.series?.length) drawRankChart($('#rankChart'), _chartState.series);
+      });
     }
 
-    /* ============ Buttons ============ */
+    /* ==== Buttons ==== */
     $('#refreshBanks').addEventListener('click', async (e)=>{
       const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Refreshing…';
       try{
@@ -491,7 +617,12 @@
         const aUSD  = latestFromHistoryUSD(aHist);
 
         renderToday(banks, aUSD);
-        rebuildChart(banks, aHist);
+
+        const series = computeRankSeriesFull(banks, aHist);
+        if (series.length){
+          $('#rankCard').style.display = 'block';
+          drawRankChart($('#rankChart'), series);
+        }
 
         $('#lastUpdated').textContent = `Last updated: ${new Date(stamp).toLocaleString()} (banks)`;
       }catch(err){
@@ -516,7 +647,12 @@
         const banks = (readCache(BANKS_KEY)||{}).banks || bankFallback;
 
         renderToday(banks, todayUSD);
-        rebuildChart(banks, history);
+
+        const series = computeRankSeriesFull(banks, history);
+        if (series.length){
+          $('#rankCard').style.display = 'block';
+          drawRankChart($('#rankChart'), series);
+        }
 
         $('#lastUpdated').textContent = `Last updated: ${new Date(stamp).toLocaleString()} (aave)`;
       }catch(err){
