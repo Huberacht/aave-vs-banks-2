@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Aave vs Banks</title>
+  <title>Aave vs Banks — split data files</title>
   <style>
     :root{
       --bg:#9C8CF4;
@@ -11,9 +11,9 @@
       --card-2:rgba(255,255,255,.08);
       --highlight:rgba(255,255,255,.22);
       --text:#ffffff;
+      --ink:#0b061d;
       --up:#31d158;
       --down:#ff6b6b;
-      --ink:#0b061d;
     }
     *{box-sizing:border-box}
     body{ margin:0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
@@ -21,12 +21,14 @@
     header h1{ font-size: clamp(32px, 5vw, 64px); margin:0 0 10px; }
     header p{ margin:0 0 18px; opacity:.95; font-size: clamp(14px, 1.6vw, 18px); }
 
-    /* Action bar */
-    .actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:10px 0 28px; }
-    .btn{ background:#fff; color:var(--ink); border:none; border-radius:999px; padding:10px 14px; font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,.15); }
+    .actions{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin:10px 0 28px; }
+    .group{ background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.28); border-radius:16px; padding:10px; }
+    .group h3{ margin:0 0 8px; font-size:14px; opacity:.9; text-transform:uppercase; letter-spacing:.06em; }
+    .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .btn{ background:#fff; color:var(--ink); border:none; border-radius:999px; padding:9px 12px; font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,.15); text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
     .btn:disabled{ opacity:.6; cursor:not-allowed; }
-    .pill{ padding:8px 12px; border-radius:999px; background: rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.28); font-size:12px; }
-    .muted{ opacity:.8; }
+    .pill{ padding:6px 10px; border-radius:999px; background: rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.28); font-size:12px; }
+    .muted{ opacity:.85; }
 
     table{ width:100%; border-collapse:separate; border-spacing:0; background: var(--card); border-radius:18px; overflow:hidden; }
     th, td{ padding:18px 20px; text-align:left; vertical-align:middle; }
@@ -37,14 +39,30 @@
     .highlight::before{ content:""; position:absolute; inset:0 auto 0 0; width:6px; background: linear-gradient(180deg, #fff, rgba(255,255,255,.5)); }
     .aave-row.highlight::before{ display:none; }
 
-    .rank-change{ font-weight:800; font-size:14px; padding:4px 8px; border-radius:999px; background: rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.22); margin-left:8px; }
+    .rank-change{
+      font-weight:800; font-size:14px;
+      padding:4px 8px; border-radius:999px;
+      background: rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.22);
+      margin-left:8px;
+      display:inline-flex; align-items:center; gap:6px;
+    }
+    .up{ color: var(--up); }
     .down{ color: var(--down); }
 
-    .aave-row .logo { display:inline-block; width:72px; height:72px; margin-right:0; vertical-align:middle; }
+    .aave-row .aave-wrap{
+      display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    }
+    .aave-row .logo { width:72px; height:72px; display:inline-block; }
+    .aave-row .deposit{
+      background:#fff; color:var(--ink); text-decoration:none;
+      border-radius:999px; padding:8px 12px; font-weight:800;
+      box-shadow:0 6px 18px rgba(0,0,0,.15);
+    }
 
     .loading { text-align: center; padding: 40px; opacity: 0.7; }
     .error { color: #ff6b6b; text-align: center; padding: 20px; font-size: 14px; }
-    .last-updated { text-align: center; margin-top: 20px; font-size: 12px; opacity: 0.7; }
+    .last-updated { text-align: center; margin-top: 20px; font-size: 12px; opacity: 0.8; }
     .tagline{ margin-top:20px; font-weight:700; letter-spacing:.02em; text-align: center; }
 
     @media (max-width: 720px){
@@ -54,6 +72,7 @@
       td{ padding:8px 6px 8px 120px; position:relative; border-bottom:1px dashed rgba(255,255,255,.18); }
       td::before{ content: attr(data-label); position:absolute; left:14px; top:8px; font-weight:700; opacity:.9; }
       .highlight::before{ width:4px; }
+      .aave-row .aave-wrap{ align-items:flex-start; }
     }
   </style>
 </head>
@@ -64,16 +83,32 @@
       <p>Built in a rush with love by Hoobi</p>
 
       <div class="actions">
-        <button id="refreshBtn" class="btn" aria-label="Refresh data">🔄 Refresh</button>
-        <button id="exportBtn" class="btn" aria-label="Export cached data">💾 Export</button>
-        <label for="importInput" class="btn" role="button" aria-label="Import cached data">📥 Import</label>
-        <input id="importInput" type="file" accept="application/json" style="display:none" />
-        <span id="cacheBadge" class="pill muted" aria-live="polite">No cache yet</span>
+        <div class="group" id="bankControls">
+          <h3>Bank data file (banks.json)</h3>
+          <div class="row">
+            <button id="refreshBanks" class="btn">🔄 Refresh Bank Data</button>
+            <button id="exportBanks" class="btn">💾 Export Banks</button>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <span class="pill muted" id="banksBadge">No banks cache yet</span>
+          </div>
+        </div>
+
+        <div class="group" id="aaveControls">
+          <h3>Aave historical file (aave.json)</h3>
+          <div class="row">
+            <button id="refreshAave" class="btn">🔄 Refresh Aave Data</button>
+            <button id="exportAave" class="btn">💾 Export Aave</button>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <span class="pill muted" id="aaveBadge">No aave cache yet</span>
+          </div>
+        </div>
       </div>
     </header>
 
     <div class="table-container">
-      <div id="loading" class="loading" role="status" aria-live="polite">Loading data…</div>
+      <div id="loading" class="loading" role="status" aria-live="polite">Loading…</div>
       <table id="dataTable" style="display:none;" aria-label="Aave vs Banks ranking">
         <thead>
           <tr>
@@ -84,7 +119,7 @@
         </thead>
         <tbody id="tableBody"></tbody>
       </table>
-      <div id="error" class="error" style="display:none;"></div>
+      <div id="msg" class="error" style="display:none;"></div>
     </div>
 
     <div id="lastUpdated" class="last-updated" aria-live="polite"></div>
@@ -92,27 +127,13 @@
   </div>
 
   <script>
-    // --------- Cache ---------
-    const CACHE_KEY = 'aaveBanksCacheV1';
-    const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24h
-    const AAVE_FALLBACK_BILLIONS = 12.5;
+    // ---------------- Consts & state ----------------
+    const BANKS_KEY = 'banksCacheV1';
+    const AAVE_KEY  = 'aaveHistCacheV1'; // stores full history array
+    const AAVE_FALLBACK_B = 12.5;
 
-    function readCache() {
-      try { return JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch { return null; }
-    }
-    function writeCache(payload) {
-      localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
-      updateCacheBadge(payload.updatedAt, true);
-    }
-    function updateCacheBadge(updatedAt, hasCache) {
-      const el = document.getElementById('cacheBadge');
-      if (!hasCache) { el.textContent = 'No cache yet'; return; }
-      const d = new Date(updatedAt);
-      el.textContent = `Cached: ${d.toLocaleString()}`;
-    }
-
-    // ---------- BANKS: fallback dataset ----------
-    const bankData = [
+    // Minimal fallback banks
+    const bankFallback = [
       { name: "JPMORGAN CHASE BK NA", assets: 3643.099 },
       { name: "BANK OF AMER NA", assets: 2615.296 },
       { name: "CITIBANK NA", assets: 1760.921 },
@@ -132,195 +153,25 @@
       { name: "FIFTH THIRD BK NA", assets: 211.921 },
       { name: "MANUFACTURERS & TRADERS TC", assets: 209.801 },
       { name: "HUNTINGTON NB", assets: 208.159 },
-      { name: "AMERICAN EXPRESS NB", assets: 203.448 },
-      { name: "KEYBANK NA", assets: 185.776 },
-      { name: "ALLY BK", assets: 182.323 },
-      { name: "HSBC BK USA NA", assets: 166.237 },
-      { name: "NORTHERN TC", assets: 164.498 },
-      { name: "REGIONS BK", assets: 158.421 },
-      { name: "DISCOVER BK", assets: 145.413 },
-      { name: "SANTANDER BK NA", assets: 104.559 },
-      { name: "FLAGSTAR BK NA", assets: 97.568 },
-      { name: "CITY NB", assets: 93.149 },
-      { name: "ZIONS BC NA", assets: 87.992 },
-      { name: "WESTERN ALLI BK", assets: 82.944 },
-      { name: "FIRST HORIZON BK", assets: 81.202 },
-      { name: "WEBSTER BK NA", assets: 80.212 },
-      { name: "COMERICA BK", assets: 77.698 },
-      { name: "EAST WEST BK", assets: 75.712 },
-      { name: "UMB BK NA", assets: 69.014 },
-      { name: "SOUTHSTATE BK NA", assets: 65.109 },
-      { name: "VALLEY NB", assets: 61.818 },
-      { name: "CIBC BK USA", assets: 61.303 },
-      { name: "SYNOVUS BK", assets: 60.208 },
-      { name: "PINNACLE BK", assets: 54.173 },
-      { name: "OLD NB", assets: 53.574 },
-      { name: "FROST BK", assets: 52.059 },
-      { name: "UMPQUA BK", assets: 51.509 },
-      { name: "BOKF NA", assets: 50.345 },
-      { name: "FIRST NB OF PA", assets: 48.800 },
-      { name: "CADENCE BK", assets: 47.743 },
-      { name: "BARCLAYS BK DE", assets: 45.277 },
-      { name: "ASSOCIATED BK NA", assets: 43.249 },
-      { name: "RAYMOND JAMES BK", assets: 41.907 },
-      { name: "EVERBANK NA", assets: 41.858 },
-      { name: "DEUTSCHE BK TC AMERICAS", assets: 39.663 },
-      { name: "BANK OZK", assets: 39.165 },
-      { name: "PROSPERITY BK", assets: 38.764 },
-      { name: "BANKUNITED NA", assets: 34.811 },
-      { name: "HANCOCK WHITNEY BK", assets: 34.732 },
-      { name: "BANC OF CA", assets: 33.692 },
-      { name: "SOFI BK NA", assets: 32.857 },
-      { name: "UNITED BK", assets: 32.691 },
-      { name: "COMMERCE BK", assets: 32.239 },
-      { name: "FULTON BK NA", assets: 31.989 },
-      { name: "FIRST NB OF OMAHA", assets: 31.792 },
-      { name: "TEXAS CAP BK", assets: 31.103 },
-      { name: "BNY MELLON NA", assets: 30.061 },
-      { name: "FIRST INTRST BK", assets: 28.204 },
-      { name: "GLACIER BK", assets: 27.842 },
-      { name: "UNITED CMNTY BK", assets: 27.827 },
-      { name: "WASHINGTON FED BK", assets: 27.629 },
-      { name: "WESBANCO BK", assets: 27.321 },
-      { name: "CITY NB OF FL", assets: 27.175 },
-      { name: "ARVEST BK", assets: 27.136 },
-      { name: "FIRSTBANK", assets: 27.110 },
-      { name: "SIMMONS BK", assets: 26.749 },
-      { name: "AMERIS BK", assets: 26.428 }
+      { name: "AMERICAN EXPRESS NB", assets: 203.448 }
     ];
 
-    function formatAssets(amount) { return `$${amount.toFixed(1)} B`; }
+    // ---------------- Utils ----------------
+    const $ = sel => document.querySelector(sel);
+    const formatB = v => `$${v.toFixed(1)} B`;
+    const nowISO = () => new Date().toISOString();
 
-    // ---------- DeFiLlama: /protocols (only) ----------
-    async function fetchJSON(url) {
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-      return res.json();
-    }
+    const readCache = key => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
+    const writeCache = (key, obj) => localStorage.setItem(key, JSON.stringify(obj));
 
-    async function fetchAaveTVL_Billions() {
-      // Docs endpoint: returns list of protocols with current tvl (USD)
-      // https://api.llama.fi/protocols
-      try {
-        const list = await fetchJSON('https://api.llama.fi/protocols');
-        if (!Array.isArray(list)) throw new Error('Unexpected payload');
+    const setBadge = (id, dateOrNull, labelWhenEmpty) => {
+      const el = $(id);
+      if (!dateOrNull) { el.textContent = labelWhenEmpty; return; }
+      el.textContent = `Cached: ${new Date(dateOrNull).toLocaleString()}`;
+    };
 
-        // 1) Prefer canonical "aave" slug
-        const aave = list.find(p => p && p.slug === 'aave');
-        if (aave && typeof aave.tvl === 'number' && isFinite(aave.tvl)) {
-          return aave.tvl / 1e9;
-        }
-
-        // 2) Otherwise, sum v2 + v3 (many UIs show these separately)
-        const v2 = list.find(p => p && p.slug === 'aave-v2');
-        const v3 = list.find(p => p && p.slug === 'aave-v3');
-        let sum = 0;
-        if (v2 && typeof v2.tvl === 'number') sum += v2.tvl;
-        if (v3 && typeof v3.tvl === 'number') sum += v3.tvl;
-        if (sum > 0) return sum / 1e9;
-
-        // 3) As a last resort, fuzzy by name (rarely needed)
-        const fuzzy = list.find(p => p?.name && /^aave(\s|$)/i.test(p.name) && typeof p.tvl === 'number');
-        if (fuzzy) return fuzzy.tvl / 1e9;
-      } catch (e) {
-        console.error('DefiLlama /protocols failed:', e);
-      }
-      return null; // let caller fallback
-    }
-
-    // ---------- Fed scrape via proxy ----------
-    async function fetchBankData() {
-      try {
-        const proxyUrl = 'https://api.allorigins.win/get?url=';
-        const targetUrl = encodeURIComponent('https://www.federalreserve.gov/releases/lbr/current/');
-        const response = await fetch(proxyUrl + targetUrl, { cache: 'no-store' });
-        if (!response.ok) throw new Error('Failed to fetch bank data');
-
-        const proxyData = await response.json();
-        const htmlContent = proxyData.contents;
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlContent, 'text/html');
-
-        const rows = doc.querySelectorAll('tr');
-        const extractedBanks = [];
-        for (let row of rows) {
-          const cells = row.querySelectorAll('td');
-          if (cells.length >= 6) {
-            const bankName = cells[0]?.textContent?.trim() || '';
-            const assets = cells[5]?.textContent?.trim() || '';
-            if ((bankName.includes('BK') || bankName.includes('BANK')) && assets) {
-              const assetsNum = parseFloat(assets.replace(/[^0-9.]/g, ''));
-              if (!isNaN(assetsNum) && assetsNum > 100) {
-                extractedBanks.push({ name: bankName.split('/')[0].trim(), assets: assetsNum / 1000 });
-              }
-            }
-          }
-        }
-        return extractedBanks.sort((a,b)=>b.assets-a.assets).slice(0, 50);
-      } catch (error) {
-        console.error('Error fetching bank data:', error);
-        return bankData;
-      }
-    }
-
-    // ---------- Rendering ----------
-    function renderTable(allBanks, aaveTVL) {
-      const tableBody = document.getElementById('tableBody');
-      tableBody.innerHTML = '';
-
-      const combinedData = [...allBanks];
-      combinedData.push({ name: "Aave", assets: aaveTVL ?? AAVE_FALLBACK_BILLIONS, isAave: true });
-
-      const sortedData = combinedData.sort((a, b) => b.assets - a.assets);
-      const aaveIndex = sortedData.findIndex(item => item.isAave);
-
-      const startIndex = Math.max(0, aaveIndex - 4);
-      const endIndex = Math.min(sortedData.length - 1, aaveIndex + 5);
-      const displayData = sortedData.slice(startIndex, endIndex + 1);
-
-      displayData.forEach((item, index) => {
-        const actualRank = startIndex + index + 1;
-        const isAave = !!item.isAave;
-
-        const row = document.createElement('tr');
-        if (isAave) row.className = 'aave-row highlight';
-
-        const nameCellContent = isAave
-          ? `
-            <span class="logo" aria-hidden="true">
-              <img src="aave.svg" alt="Aave logo" style="width:150px; height:72px; vertical-align:middle;">
-            </span>
-          `
-          : item.name;
-
-        // ONLY Aave shows a rank-change badge, always a down arrow.
-        const rankBadge = isAave
-          ? `<span class="rank-change down" aria-label="rank change down">▼</span>`
-          : '';
-
-        row.innerHTML = `
-          <td data-label="Rank">${actualRank}${rankBadge}</td>
-          <td data-label="Name">${nameCellContent}</td>
-          <td data-label="Assets">${formatAssets(item.assets)}</td>
-        `;
-        tableBody.appendChild(row);
-      });
-
-      const aaveRank = aaveIndex + 1;
-      const msg = `Showing Aave (rank ${aaveRank}) with 4 banks above and 5 banks below. Total institutions: ${sortedData.length}`;
-      const info = document.getElementById('error');
-      info.textContent = msg;
-      info.style.display = 'block';
-      info.style.color = '#ffffff';
-      info.style.opacity = '0.8';
-    }
-
-    // ---------- Snapshot / Export / Import ----------
-    function makeSnapshot(banks, aaveTVL) {
-      return { version: 2, updatedAt: new Date().toISOString(), banks, aaveTVL: aaveTVL ?? AAVE_FALLBACK_BILLIONS };
-    }
-    function downloadJSON(obj, filename) {
-      const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+    function downloadJSON(obj, filename){
+      const blob = new Blob([JSON.stringify(obj, null, 2)], { type:'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = filename;
@@ -328,69 +179,179 @@
       a.remove(); URL.revokeObjectURL(url);
     }
 
-    // ---------- Init / Refresh ----------
-    async function refreshFromNetwork() {
-      const refreshBtn = document.getElementById('refreshBtn');
-      refreshBtn.disabled = true; refreshBtn.textContent = 'Refreshing…';
-      try {
-        const [banks, aaveTVL] = await Promise.all([fetchBankData(), fetchAaveTVL_Billions()]);
-        const allBanks = banks.length > 20 ? banks : bankData;
+    async function fetchJSON(url){
+      const res = await fetch(url, { cache:'no-store' });
+      if(!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+      return res.json();
+    }
 
-        renderTable(allBanks, aaveTVL ?? AAVE_FALLBACK_BILLIONS);
-
-        const snap = makeSnapshot(allBanks, aaveTVL ?? AAVE_FALLBACK_BILLIONS);
-        writeCache(snap);
-        document.getElementById('lastUpdated').textContent = `Last updated: ${new Date(snap.updatedAt).toLocaleString()}`;
-      } catch (e) {
-        console.error('Refresh failed:', e);
-      } finally {
-        refreshBtn.disabled = false; refreshBtn.textContent = '🔄 Refresh';
+    // ---------------- Fetchers ----------------
+    // Banks: scrape Fed page
+    async function fetchBanks(){
+      try{
+        const proxy = 'https://api.allorigins.win/get?url=';
+        const url = encodeURIComponent('https://www.federalreserve.gov/releases/lbr/current/');
+        const resp = await fetch(`${proxy}${url}`, { cache:'no-store' });
+        if(!resp.ok) throw new Error('banks fetch failed');
+        const { contents } = await resp.json();
+        const doc = new DOMParser().parseFromString(contents, 'text/html');
+        const rows = doc.querySelectorAll('tr');
+        const out = [];
+        for (const row of rows){
+          const tds = row.querySelectorAll('td');
+          if (tds.length >= 6){
+            const name = tds[0]?.textContent?.trim() || '';
+            const assets = tds[5]?.textContent?.trim() || '';
+            if ((name.includes('BK') || name.includes('BANK')) && assets){
+              const n = parseFloat(assets.replace(/[^0-9.]/g,''));
+              if (!isNaN(n) && n>100){
+                out.push({ name: name.split('/')[0].trim(), assets: n/1000 });
+              }
+            }
+          }
+        }
+        return out.sort((a,b)=>b.assets-a.assets).slice(0,50);
+      }catch(e){
+        console.warn('banks fallback', e);
+        return bankFallback;
       }
     }
 
-    async function boot() {
-      const cached = readCache();
-      if (cached) {
-        renderTable(cached.banks, cached.aaveTVL);
-        updateCacheBadge(cached.updatedAt, true);
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('dataTable').style.display = 'table';
-        document.getElementById('lastUpdated').textContent = `Last updated: ${new Date(cached.updatedAt).toLocaleString()} (cached)`;
-      } else {
-        updateCacheBadge(null, false);
-        await refreshFromNetwork();
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('dataTable').style.display = 'table';
+    // Aave historical from /protocol/{protocol}
+    function coerceAavePoint(x){
+      if (typeof x === 'number') return x;
+      if (x && typeof x === 'object'){
+        const v = x.totalLiquidityUSD ?? x.totalLiquidityUsd ?? x.totalLiquidity ?? x.value ?? x.tvl;
+        if (typeof v === 'number') return v;
       }
+      return null;
+    }
+    async function fetchAaveHistory(){
+      // Docs endpoint: https://api.llama.fi/protocol/aave
+      const data = await fetchJSON('https://api.llama.fi/protocol/aave');
+      const arr = Array.isArray(data.tvl) ? data.tvl : [];
+      return arr;
     }
 
-    // ---------- Buttons ----------
-    document.getElementById('refreshBtn').addEventListener('click', refreshFromNetwork);
-    document.getElementById('exportBtn').addEventListener('click', () => {
-      const cached = readCache();
-      if (!cached) { alert('No cache yet. Click Refresh first.'); return; }
-      downloadJSON(cached, 'aave-banks-data.json');
-    });
-    document.getElementById('importInput').addEventListener('change', async (ev) => {
-      const file = ev.target.files?.[0];
-      if (!file) return;
-      try {
-        const text = await file.text();
-        const obj = JSON.parse(text);
-        if (!obj || !obj.banks || typeof obj.aaveTVL !== 'number') throw new Error('Invalid file');
-        writeCache(obj);
-        renderTable(obj.banks, obj.aaveTVL);
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('dataTable').style.display = 'table';
-        document.getElementById('lastUpdated').textContent = `Last updated: ${new Date(obj.updatedAt || Date.now()).toLocaleString()} (imported)`;
-      } catch (e) {
-        alert('Could not import: ' + e.message);
-      } finally {
-        ev.target.value = '';
+    // ---------------- Rendering (today-only) ----------------
+    function renderToday(banks, aaveHist){
+      const table = $('#tableBody');
+      table.innerHTML = '';
+
+      // get "today" Aave = last value in history
+      let aaveUsd = null;
+      if (Array.isArray(aaveHist) && aaveHist.length){
+        const last = aaveHist[aaveHist.length - 1];
+        const v = coerceAavePoint(last);
+        if (typeof v === 'number' && isFinite(v)) aaveUsd = v;
       }
+      const aaveB = (aaveUsd ?? AAVE_FALLBACK_B * 1e9) / 1e9; // billions
+
+      const combined = [...banks, { name:'Aave', assets: aaveB, isAave:true }];
+      const sorted = combined.sort((a,b)=>b.assets-a.assets);
+      const idx = sorted.findIndex(x=>x.isAave);
+
+      const start = Math.max(0, idx - 4);
+      const end   = Math.min(sorted.length - 1, idx + 5);
+      const slice = sorted.slice(start, end+1);
+
+      for (let i=0;i<slice.length;i++){
+        const item = slice[i];
+        const rank = start + i + 1;
+        const isAave = !!item.isAave;
+
+        const tr = document.createElement('tr');
+        if (isAave) tr.className = 'aave-row highlight';
+
+        const nameCell = isAave
+          ? `<div class="aave-wrap">
+               <span class="logo"><img src="aave.svg" alt="Aave logo" style="width:150px;height:72px;vertical-align:middle;"></span>
+               <a class="deposit" href="https://app.aave.com/" target="_blank" rel="noopener noreferrer">💧 Deposit now</a>
+             </div>`
+          : item.name;
+
+        /* ONLY Aave shows a rank-change badge, constant "^ 3" up */
+        const badge = isAave
+          ? `<span class="rank-change up" aria-label="rank change up by 3">^ 3</span>`
+          : '';
+
+        tr.innerHTML = `
+          <td data-label="Rank">${rank}${badge}</td>
+          <td data-label="Name">${nameCell}</td>
+          <td data-label="Assets">${formatB(item.assets)}</td>
+        `;
+        table.appendChild(tr);
+      }
+
+      // info line
+      const msg = $('#msg');
+      msg.style.display = 'block';
+      msg.style.color = '#fff';
+      msg.style.opacity = '.85';
+      msg.textContent = `Showing Aave (rank ${idx+1}) vs banks • Today only`;
+    }
+
+    // ---------------- Boot & wiring ----------------
+    async function boot(){
+      const banksCache = readCache(BANKS_KEY);
+      const aaveCache  = readCache(AAVE_KEY);
+
+      setBadge('#banksBadge', banksCache?.updatedAt, 'No banks cache yet');
+      setBadge('#aaveBadge',  aaveCache?.updatedAt,  'No aave cache yet');
+
+      const banks = banksCache?.banks || bankFallback;
+      const aaveHist = aaveCache?.history || [];
+
+      renderToday(banks, aaveHist);
+      $('#loading').style.display = 'none';
+      $('#dataTable').style.display = 'table';
+      const ts = banksCache?.updatedAt || aaveCache?.updatedAt || nowISO();
+      $('#lastUpdated').textContent = `Last updated: ${new Date(ts).toLocaleString()}`;
+    }
+
+    // --- Buttons: Refresh ---
+    $('#refreshBanks').addEventListener('click', async (e)=>{
+      const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Refreshing…';
+      try{
+        const banks = await fetchBanks();
+        const stamp = nowISO();
+        writeCache(BANKS_KEY, { updatedAt: stamp, banks });
+        setBadge('#banksBadge', stamp, 'No banks cache yet');
+
+        const aaveHist = (readCache(AAVE_KEY)||{}).history || [];
+        renderToday(banks, aaveHist);
+        $('#lastUpdated').textContent = `Last updated: ${new Date(stamp).toLocaleString()} (banks)`;
+      }catch(err){ console.error(err); }
+      finally{ btn.disabled = false; btn.textContent = '🔄 Refresh Bank Data'; }
     });
 
-    // ---------- Start ----------
+    $('#refreshAave').addEventListener('click', async (e)=>{
+      const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Refreshing…';
+      try{
+        const history = await fetchAaveHistory();
+        const stamp = nowISO();
+        writeCache(AAVE_KEY, { updatedAt: stamp, history });
+        setBadge('#aaveBadge', stamp, 'No aave cache yet');
+
+        const banks = (readCache(BANKS_KEY)||{}).banks || bankFallback;
+        renderToday(banks, history);
+        $('#lastUpdated').textContent = `Last updated: ${new Date(stamp).toLocaleString()} (aave)`;
+      }catch(err){ console.error(err); }
+      finally{ btn.disabled = false; btn.textContent = '🔄 Refresh Aave Data'; }
+    });
+
+    // --- Buttons: Export ---
+    $('#exportBanks').addEventListener('click', ()=>{
+      const cache = readCache(BANKS_KEY);
+      if (!cache){ alert('No banks cache yet. Refresh first.'); return; }
+      downloadJSON(cache, 'banks.json');
+    });
+    $('#exportAave').addEventListener('click', ()=>{
+      const cache = readCache(AAVE_KEY);
+      if (!cache){ alert('No aave cache yet. Refresh first.'); return; }
+      downloadJSON(cache, 'aave.json');
+    });
+
     document.addEventListener('DOMContentLoaded', boot);
   </script>
 </body>
