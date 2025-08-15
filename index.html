@@ -16,94 +16,31 @@
       --ink:#0b061d;
     }
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: Arial, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
-    .container{
-      max-width:1000px;
-      margin:0 auto;
-      padding:48px 20px 24px;
-    }
-    header h1{
-      font-size: clamp(32px, 5vw, 64px);
-      margin:0 0 10px;
-    }
-    header p{
-      margin:0 0 18px;
-      opacity:.95;
-      font-size: clamp(14px, 1.6vw, 18px);
-    }
+    body{ margin:0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
+    .container{ max-width:1000px; margin:0 auto; padding:48px 20px 24px; }
+    header h1{ font-size: clamp(32px, 5vw, 64px); margin:0 0 10px; }
+    header p{ margin:0 0 18px; opacity:.95; font-size: clamp(14px, 1.6vw, 18px); }
 
     /* Action bar */
-    .actions{
-      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-      margin:10px 0 28px;
-    }
-    .btn{
-      background:#fff; color:var(--ink);
-      border:none; border-radius:999px; padding:10px 14px; font-weight:700;
-      cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,.15);
-    }
+    .actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:10px 0 28px; }
+    .btn{ background:#fff; color:var(--ink); border:none; border-radius:999px; padding:10px 14px; font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,.15); }
     .btn:disabled{ opacity:.6; cursor:not-allowed; }
-    .pill{
-      padding:8px 12px; border-radius:999px; background: rgba(255,255,255,.14);
-      border:1px solid rgba(255,255,255,.28); font-size:12px;
-    }
+    .pill{ padding:8px 12px; border-radius:999px; background: rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.28); font-size:12px; }
     .muted{ opacity:.8; }
 
-    table{
-      width:100%;
-      border-collapse:separate;
-      border-spacing:0;
-      background: var(--card);
-      border-radius:18px;
-      overflow:hidden;
-    }
-    th, td{
-      padding:18px 20px;
-      text-align:left;
-      vertical-align:middle;
-    }
-    th{
-      font-size:14px;
-      letter-spacing:.06em;
-      text-transform:uppercase;
-      opacity:.85;
-      border-bottom:1px solid rgba(255,255,255,.16);
-    }
+    table{ width:100%; border-collapse:separate; border-spacing:0; background: var(--card); border-radius:18px; overflow:hidden; }
+    th, td{ padding:18px 20px; text-align:left; vertical-align:middle; }
+    th{ font-size:14px; letter-spacing:.06em; text-transform:uppercase; opacity:.85; border-bottom:1px solid rgba(255,255,255,.16); }
     tr:nth-child(even){ background: var(--card-2); }
 
-    .highlight{
-      position:relative;
-      background: var(--highlight) !important;
-      font-weight:700;
-    }
-    .highlight::before{
-      content:"";
-      position:absolute; inset:0 auto 0 0;
-      width:6px;
-      background: linear-gradient(180deg, #fff, rgba(255,255,255,.5));
-    }
+    .highlight{ position:relative; background: var(--highlight) !important; font-weight:700; }
+    .highlight::before{ content:""; position:absolute; inset:0 auto 0 0; width:6px; background: linear-gradient(180deg, #fff, rgba(255,255,255,.5)); }
     .aave-row.highlight::before{ display:none; }
 
-    .rank-change{
-      font-weight:800; font-size:14px;
-      padding:4px 8px; border-radius:999px;
-      background: rgba(255,255,255,.12);
-      border:1px solid rgba(255,255,255,.22);
-      margin-left:8px;
-    }
-    .up{ color: var(--up); }
+    .rank-change{ font-weight:800; font-size:14px; padding:4px 8px; border-radius:999px; background: rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.22); margin-left:8px; }
     .down{ color: var(--down); }
 
-    .aave-row .logo {
-      display: inline-block;
-      width: 72px; height: 72px;
-      margin-right: 0; vertical-align: middle;
-    }
+    .aave-row .logo { display:inline-block; width:72px; height:72px; margin-right:0; vertical-align:middle; }
 
     .loading { text-align: center; padding: 40px; opacity: 0.7; }
     .error { color: #ff6b6b; text-align: center; padding: 20px; font-size: 14px; }
@@ -114,16 +51,8 @@
       thead{ display:none; }
       table, tbody, tr, td{ display:block; width:100%; }
       tr{ padding:12px 14px; }
-      td{
-        padding:8px 6px 8px 120px;
-        position:relative;
-        border-bottom:1px dashed rgba(255,255,255,.18);
-      }
-      td::before{
-        content: attr(data-label);
-        position:absolute; left:14px; top:8px;
-        font-weight:700; opacity:.9;
-      }
+      td{ padding:8px 6px 8px 120px; position:relative; border-bottom:1px dashed rgba(255,255,255,.18); }
+      td::before{ content: attr(data-label); position:absolute; left:14px; top:8px; font-weight:700; opacity:.9; }
       .highlight::before{ width:4px; }
     }
   </style>
@@ -163,17 +92,13 @@
   </div>
 
   <script>
-    // --------- Constants & cache helpers ---------
+    // --------- Cache ---------
     const CACHE_KEY = 'aaveBanksCacheV1';
     const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24h
     const AAVE_FALLBACK_BILLIONS = 12.5;
 
     function readCache() {
-      try {
-        const raw = localStorage.getItem(CACHE_KEY);
-        if (!raw) return null;
-        return JSON.parse(raw);
-      } catch { return null; }
+      try { return JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch { return null; }
     }
     function writeCache(payload) {
       localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
@@ -184,10 +109,6 @@
       if (!hasCache) { el.textContent = 'No cache yet'; return; }
       const d = new Date(updatedAt);
       el.textContent = `Cached: ${d.toLocaleString()}`;
-    }
-    function isCacheFresh(updatedAt) {
-      if (!updatedAt) return false;
-      return (Date.now() - new Date(updatedAt).getTime()) < CACHE_MAX_AGE_MS;
     }
 
     // ---------- BANKS: fallback dataset ----------
@@ -270,51 +191,44 @@
 
     function formatAssets(amount) { return `$${amount.toFixed(1)} B`; }
 
-    // ---------- DeFiLlama helpers ----------
-    async function fetchJSON(url, opts = {}) {
-      const res = await fetch(url, { cache: 'no-store', ...opts });
+    // ---------- DeFiLlama: /protocols (only) ----------
+    async function fetchJSON(url) {
+      const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
       return res.json();
     }
-    function coerceTVLFromProtocol(payload) {
-      if (!payload) return null;
-      if (Array.isArray(payload.tvl) && payload.tvl.length > 0) {
-        const last = payload.tvl[payload.tvl.length - 1];
-        if (typeof last === 'number') return last;
-        if (last && typeof last === 'object') {
-          const v = last.totalLiquidityUSD ?? last.totalLiquidityUsd ?? last.totalLiquidity ?? last.value ?? last.tvl;
-          if (typeof v === 'number') return v;
+
+    async function fetchAaveTVL_Billions() {
+      // Docs endpoint: returns list of protocols with current tvl (USD)
+      // https://api.llama.fi/protocols
+      try {
+        const list = await fetchJSON('https://api.llama.fi/protocols');
+        if (!Array.isArray(list)) throw new Error('Unexpected payload');
+
+        // 1) Prefer canonical "aave" slug
+        const aave = list.find(p => p && p.slug === 'aave');
+        if (aave && typeof aave.tvl === 'number' && isFinite(aave.tvl)) {
+          return aave.tvl / 1e9;
         }
+
+        // 2) Otherwise, sum v2 + v3 (many UIs show these separately)
+        const v2 = list.find(p => p && p.slug === 'aave-v2');
+        const v3 = list.find(p => p && p.slug === 'aave-v3');
+        let sum = 0;
+        if (v2 && typeof v2.tvl === 'number') sum += v2.tvl;
+        if (v3 && typeof v3.tvl === 'number') sum += v3.tvl;
+        if (sum > 0) return sum / 1e9;
+
+        // 3) As a last resort, fuzzy by name (rarely needed)
+        const fuzzy = list.find(p => p?.name && /^aave(\s|$)/i.test(p.name) && typeof p.tvl === 'number');
+        if (fuzzy) return fuzzy.tvl / 1e9;
+      } catch (e) {
+        console.error('DefiLlama /protocols failed:', e);
       }
-      if (typeof payload.tvl === 'number') return payload.tvl;
-      if (payload.metrics && typeof payload.metrics.tvl === 'number') return payload.metrics.tvl;
-      return null;
-    }
-    function coerceTVLFromProtocols(list) {
-      if (!Array.isArray(list)) return null;
-      const aave = list.find(p =>
-        (p.slug && ['aave','aave-v2','aave-v3'].includes(p.slug)) ||
-        (p.name && /(^|\s)aave(\s|$)/i.test(p.name))
-      );
-      if (!aave) return null;
-      const v = aave.tvl ?? aave.totalLiquidityUSD ?? aave.totalLiquidity ?? aave.tvlUsd;
-      return (typeof v === 'number') ? v : null;
-    }
-    async function fetchAaveTVL() {
-      try {
-        const protocol = await fetchJSON('https://api.llama.fi/protocol/aave');
-        const tvlUsd = coerceTVLFromProtocol(protocol);
-        if (typeof tvlUsd === 'number' && isFinite(tvlUsd)) return tvlUsd / 1e9;
-      } catch(e){ console.warn('Protocol endpoint failed:', e); }
-      try {
-        const protocols = await fetchJSON('https://api.llama.fi/protocols');
-        const tvlUsd = coerceTVLFromProtocols(protocols);
-        if (typeof tvlUsd === 'number' && isFinite(tvlUsd)) return tvlUsd / 1e9;
-      } catch(e){ console.error('Protocols fallback failed:', e); }
-      return null;
+      return null; // let caller fallback
     }
 
-    // ---------- Federal Reserve scrape (with proxy) ----------
+    // ---------- Fed scrape via proxy ----------
     async function fetchBankData() {
       try {
         const proxyUrl = 'https://api.allorigins.win/get?url=';
@@ -329,7 +243,6 @@
 
         const rows = doc.querySelectorAll('tr');
         const extractedBanks = [];
-
         for (let row of rows) {
           const cells = row.querySelectorAll('td');
           if (cells.length >= 6) {
@@ -338,10 +251,7 @@
             if ((bankName.includes('BK') || bankName.includes('BANK')) && assets) {
               const assetsNum = parseFloat(assets.replace(/[^0-9.]/g, ''));
               if (!isNaN(assetsNum) && assetsNum > 100) {
-                extractedBanks.push({
-                  name: bankName.split('/')[0].trim(),
-                  assets: assetsNum / 1000 // millions → billions
-                });
+                extractedBanks.push({ name: bankName.split('/')[0].trim(), assets: assetsNum / 1000 });
               }
             }
           }
@@ -405,15 +315,9 @@
       info.style.opacity = '0.8';
     }
 
-    // ---------- Export / Import helpers ----------
+    // ---------- Snapshot / Export / Import ----------
     function makeSnapshot(banks, aaveTVL) {
-      // Save *everything needed to render instantly* next time
-      return {
-        version: 1,
-        updatedAt: new Date().toISOString(),
-        banks,
-        aaveTVL: aaveTVL ?? AAVE_FALLBACK_BILLIONS
-      };
+      return { version: 2, updatedAt: new Date().toISOString(), banks, aaveTVL: aaveTVL ?? AAVE_FALLBACK_BILLIONS };
     }
     function downloadJSON(obj, filename) {
       const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
@@ -428,21 +332,17 @@
     async function refreshFromNetwork() {
       const refreshBtn = document.getElementById('refreshBtn');
       refreshBtn.disabled = true; refreshBtn.textContent = 'Refreshing…';
-
       try {
-        const [banks, aaveTVL] = await Promise.all([fetchBankData(), fetchAaveTVL()]);
+        const [banks, aaveTVL] = await Promise.all([fetchBankData(), fetchAaveTVL_Billions()]);
         const allBanks = banks.length > 20 ? banks : bankData;
 
         renderTable(allBanks, aaveTVL ?? AAVE_FALLBACK_BILLIONS);
 
         const snap = makeSnapshot(allBanks, aaveTVL ?? AAVE_FALLBACK_BILLIONS);
         writeCache(snap);
-
-        // update timestamps
         document.getElementById('lastUpdated').textContent = `Last updated: ${new Date(snap.updatedAt).toLocaleString()}`;
       } catch (e) {
         console.error('Refresh failed:', e);
-        // keep whatever is on screen
       } finally {
         refreshBtn.disabled = false; refreshBtn.textContent = '🔄 Refresh';
       }
@@ -451,31 +351,24 @@
     async function boot() {
       const cached = readCache();
       if (cached) {
-        // Instant paint from cache
         renderTable(cached.banks, cached.aaveTVL);
         updateCacheBadge(cached.updatedAt, true);
         document.getElementById('loading').style.display = 'none';
         document.getElementById('dataTable').style.display = 'table';
         document.getElementById('lastUpdated').textContent = `Last updated: ${new Date(cached.updatedAt).toLocaleString()} (cached)`;
-
-        // If cache is stale, you can optionally auto-refresh here.
-        // For now we only refresh when the user clicks Refresh.
       } else {
         updateCacheBadge(null, false);
-        // First-time: show loader, then do a refresh
         await refreshFromNetwork();
         document.getElementById('loading').style.display = 'none';
         document.getElementById('dataTable').style.display = 'table';
       }
     }
 
-    // ---------- Wire up buttons ----------
+    // ---------- Buttons ----------
     document.getElementById('refreshBtn').addEventListener('click', refreshFromNetwork);
     document.getElementById('exportBtn').addEventListener('click', () => {
       const cached = readCache();
-      if (!cached) {
-        alert('No cache yet. Click Refresh first.'); return;
-      }
+      if (!cached) { alert('No cache yet. Click Refresh first.'); return; }
       downloadJSON(cached, 'aave-banks-data.json');
     });
     document.getElementById('importInput').addEventListener('change', async (ev) => {
