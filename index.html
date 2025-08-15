@@ -181,7 +181,7 @@
         <div class="switch" id="borrowedSwitch" role="switch" aria-checked="false" tabindex="0"></div>
         <div>
           <div class="toggle-label">Count borrowed assets to TVL?</div>
-          <div class="toggle-help">Adds a fixed $27.87B to Aave’s assets when ranking vs banks (chart & table update instantly).</div>
+          <div class="toggle-help">Adds borrowed assets to AAVE TVL (disable to avoid double counting).</div>
         </div>
       </div>
     </div>
@@ -207,7 +207,7 @@
         <div>
           <div class="label">Borrowed</div>
           <div class="value" id="kpiBorrowed">$27.87B</div>
-          <div class="sub">Fixed (for now)</div>
+          <div class="sub">Snapshot</div>
         </div>
       </div>
     </div>
@@ -585,7 +585,7 @@
         const nameCell = isAave
           ? `<div class="aave-wrap">
                <span class="logo"><img src="aave.svg" alt="Aave logo" style="width:150px;height:72px;vertical-align:middle;"></span>
-               <a class="deposit" href="https://app.aave.com/" target="_blank" rel="noopener noreferrer">💧 Deposit now</a>
+               <a class="deposit" href="https://app.aave.com/" target="_blank" rel="noopener noreferrer">Deposit now</a>
              </div>`
           : item.name;
 
