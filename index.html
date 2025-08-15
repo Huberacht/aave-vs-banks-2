@@ -32,13 +32,7 @@
       border:1px solid rgba(255,255,255,.22);
       box-shadow:0 6px 30px rgba(0,0,0,.18);
     }
-    .card h3{
-      margin:0 0 8px;
-      font-size:13px;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-      opacity:.95;
-    }
+    .card h3{ margin:0 0 8px; font-size:13px; letter-spacing:.08em; text-transform:uppercase; opacity:.95; }
 
     .chart-wrap{ width:100%; position:relative; }
     canvas{ width:100%; height:260px; display:block; }
@@ -52,19 +46,15 @@
     }
     .tooltip .muted{ opacity:.8; }
 
-    /* KPI row under chart */
+    /* KPI row */
     .kpis{ display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin:12px 0 6px; }
     .kpi{
       display:flex; align-items:center; justify-content:space-between; gap:10px;
       background:var(--card); border:1px solid rgba(255,255,255,.22);
       border-radius:16px; padding:14px 16px;
     }
-    .kpi .label{
-      font-size:12px; text-transform:uppercase; letter-spacing:.08em; opacity:.9;
-    }
-    .kpi .value{
-      font-size: clamp(20px, 4vw, 28px); font-weight:900; letter-spacing:.02em;
-    }
+    .kpi .label{ font-size:12px; text-transform:uppercase; letter-spacing:.08em; opacity:.9; }
+    .kpi .value{ font-size: clamp(20px, 4vw, 28px); font-weight:900; letter-spacing:.02em; }
     .kpi .sub{ font-size:12px; opacity:.85; }
     .kpi .btn{
       background:#fff; color:var(--ink); border:none; border-radius:999px;
@@ -101,7 +91,7 @@
       margin-left:80px;
     }
 
-    /* Rank movement badge (same look as buttons) */
+    /* Rank movement badge */
     .rank-badge{
       display:inline-flex; align-items:center; gap:6px;
       background:#fff; color:var(--ink);
@@ -155,9 +145,9 @@
 
     <!-- CHART -->
     <div class="card" id="rankCard" style="display:none; margin-top:8px;">
-      <h3>Aave rank (from 01 Aug 2020)</h3>
+      <h3>Aave rank (from 20 Aug 2020)</h3>
       <div class="chart-wrap" id="chartWrap">
-        <canvas id="rankChart" aria-label="Aave daily rank since 2020-08-01" role="img"></canvas>
+        <canvas id="rankChart" aria-label="Aave daily rank since 2020-08-20" role="img"></canvas>
         <div class="tooltip" id="tooltip"></div>
       </div>
     </div>
@@ -204,7 +194,7 @@
       <div id="msg" class="error" style="display:none;"></div>
     </div>
 
-    <!-- ACTIONS (below table) -->
+    <!-- ACTIONS -->
     <div class="actions">
       <div class="group" id="bankControls">
         <h3>Bank data file (banks.json)</h3>
@@ -235,10 +225,10 @@
 
   <script>
     /* ==== Keys / constants ==== */
-    const BANKS_KEY = 'banksCacheV9';
-    const AAVE_KEY  = 'aaveHistCacheV8'; // includes borrowed history (merged)
+    const BANKS_KEY = 'banksCacheV10';
+    const AAVE_KEY  = 'aaveHistCacheV9'; // borrowed extraction hardened
     const AAVE_FALLBACK_B = 12.5;
-    const CHART_START = new Date('2020-08-01T00:00:00'); // start chart 01 Aug 2020
+    const CHART_START = new Date('2020-08-20T00:00:00'); // <-- 20 Aug 2020
 
     const bankFallback = [
       { name: "JPMORGAN CHASE BK NA", assets: 3643.099 },
@@ -304,7 +294,7 @@
     function coercePointUSD(x){
       if (typeof x === 'number') return x;
       if (x && typeof x === 'object'){
-        const cand = [x.totalLiquidityUSD, x.totalLiquidityUsd, x.totalLiquidity, x.value, x.tvl];
+        const cand = [x.totalLiquidityUSD, x.totalLiquidityUsd, x.totalLiquidity, x.value, x.tvl, x.usd];
         for (const v of cand) if (typeof v === 'number' && isFinite(v)) return v;
       }
       return null;
@@ -312,7 +302,7 @@
     function coerceBorrowedUSD(x){
       if (typeof x === 'number') return x;
       if (x && typeof x === 'object'){
-        const cand = [x.borrowedUSD, x.borrowedUsd, x.borrowed, x.value];
+        const cand = [x.borrowedUSD, x.borrowedUsd, x.borrowed, x.totalBorrowed, x.totalBorrows, x.debt, x.value, x.usd];
         for (const v of cand) if (typeof v === 'number' && isFinite(v)) return v;
       }
       return null;
@@ -335,17 +325,19 @@
       return null;
     }
 
-    async function fetchAaveProtocol(){
-      return fetchJSON('https://api.llama.fi/protocol/aave');
+    async function fetchAaveProtocol(slug='aave'){
+      // you can swap slug for 'aave-v2' or 'aave-v3' if you prefer
+      return fetchJSON(`https://api.llama.fi/protocol/${slug}`);
     }
 
-    // Always produce a full borrowed series:
-    // - Use top-level proto.borrowed if present
-    // - Also aggregate per-chain borrowed from proto.chainTvls to fill gaps / when top-level is missing
+    // Robust borrowed-series builder:
+    // 1) use top-level .borrowed if present
+    // 2) aggregate per-chain arrays likely to be borrowed: borrowed, borrows, debt, totalBorrowed, totalBorrows
+    // 3) as a fallback, scan any chain arrays that contain borrow-like numeric fields
     function buildBorrowedSeries(proto){
       const out = [];
 
-      // A) direct 'borrowed' array
+      // A) direct top-level borrowed[]
       if (Array.isArray(proto.borrowed) && proto.borrowed.length){
         for (const p of proto.borrowed){
           const usd = coerceBorrowedUSD(p);
@@ -354,26 +346,53 @@
         }
       }
 
-      // B) aggregate per-chain borrowed series
+      // Helper to add per-day
+      const addToMap = (map, date, usd) => {
+        const key = date.toISOString().slice(0,10);
+        map.set(key, (map.get(key) || 0) + usd);
+      };
+
+      // B) aggregate per-chain
+      const agg = new Map(); // day -> sumUSD
       if (proto.chainTvls && typeof proto.chainTvls === 'object'){
-        const map = new Map(); // dateKey -> sumUSD
+        const guessArrayKeys = ['borrowed','borrows','debt','totalBorrowed','totalBorrows'];
         for (const ch of Object.keys(proto.chainTvls)){
-          const arr = proto.chainTvls[ch]?.borrowed;
-          if (!Array.isArray(arr)) continue;
-          for (const p of arr){
-            const usd = coerceBorrowedUSD(p);
-            const d = extractPointDate(p, null);
-            if (typeof usd !== 'number' || !d) continue;
-            const key = d.toISOString().slice(0,10);
-            map.set(key, (map.get(key) || 0) + usd);
+          const chObj = proto.chainTvls[ch] || {};
+          // preferred keys
+          let used = false;
+          for (const key of guessArrayKeys){
+            const arr = chObj[key];
+            if (!Array.isArray(arr)) continue;
+            used = true;
+            for (const p of arr){
+              const usd = coerceBorrowedUSD(p);
+              const d = extractPointDate(p, null);
+              if (typeof usd !== 'number' || !d) continue;
+              addToMap(agg, d, usd);
+            }
+          }
+          // fallback: scan all array-typed props for borrow-like points
+          if (!used){
+            for (const [k,val] of Object.entries(chObj)){
+              if (!Array.isArray(val)) continue;
+              // skip obviously non-time series things (like tokens, pools)
+              if (k === 'tvl' || k === 'tokens' || k === 'tokenBreakdowns' || k === 'pool2' || k === 'staking') continue;
+              for (const p of val){
+                const usd = coerceBorrowedUSD(p);
+                const d = extractPointDate(p, null);
+                if (typeof usd !== 'number' || !d) continue;
+                addToMap(agg, d, usd);
+              }
+            }
           }
         }
-        for (const [k, sum] of map.entries()){
-          const date = new Date(k);
-          // Only add if not already present for that day
-          if (!out.find(o => o.date.toISOString().slice(0,10) === k)){
-            out.push({ date, usd: sum });
-          }
+      }
+
+      // merge agg into out (only if not already present for that day)
+      for (const [k, sum] of agg.entries()){
+        const date = new Date(k);
+        if (!out.find(o => o.date.toISOString().slice(0,10) === k)){
+          out.push({ date, usd: sum });
         }
       }
 
@@ -388,13 +407,39 @@
     }
 
     async function fetchAaveHistoryFull(){
-      const proto = await fetchAaveProtocol();
-      const tvl = Array.isArray(proto.tvl) ? proto.tvl : [];
-      const borrowed = buildBorrowedSeries(proto);
+      // Try aave first; if borrowed still empty, try v3 (some installs keep richer per-chain breakdowns there)
+      let proto = await fetchAaveProtocol('aave');
+      let tvl = Array.isArray(proto.tvl) ? proto.tvl : [];
+      let borrowed = buildBorrowedSeries(proto);
+
+      if (!borrowed.length){
+        try{
+          const p3 = await fetchAaveProtocol('aave-v3');
+          const b3 = buildBorrowedSeries(p3);
+          if (b3.length){
+            borrowed = b3;
+            // prefer TVL from main 'aave' unless empty
+            if (!tvl.length && Array.isArray(p3.tvl)) tvl = p3.tvl;
+          }
+        }catch(e){}
+      }
+
+      // still nothing? last fallback to aave-v2
+      if (!borrowed.length){
+        try{
+          const p2 = await fetchAaveProtocol('aave-v2');
+          const b2 = buildBorrowedSeries(p2);
+          if (b2.length){
+            borrowed = b2;
+            if (!tvl.length && Array.isArray(p2.tvl)) tvl = p2.tvl;
+          }
+        }catch(e){}
+      }
+
       return { tvl, borrowed };
     }
 
-    /* ==== Rank series (uses TVL, from 2020-08-01) ==== */
+    /* ==== Rank series (uses TVL, from 2020-08-20) ==== */
     // [{ t:Date, tvlB:Number, borrowedB:Number|null, rank:Number }]
     function computeRankSeriesFull(banks, aaveHist, aaveBorrowed){
       const bankAssetsB = [...banks].map(b => b.assets).sort((a,b)=>b-a);
@@ -476,7 +521,7 @@
       const grid = getComputedStyle(document.documentElement).getPropertyValue('--grid');
       const line = getComputedStyle(document.documentElement).getPropertyValue('--line');
 
-      // horizontal grid
+      // grid
       const yMin = y(minR), yMax = y(maxR), yMid = y((minR+maxR)/2);
       ctx.strokeStyle = grid; ctx.lineWidth = Math.max(1, DPR);
       ctx.beginPath(); ctx.moveTo(PAD_L, yMin); ctx.lineTo(W-PAD_R, yMin); ctx.stroke();
@@ -630,11 +675,10 @@
         const nameCell = isAave
           ? `<div class="aave-wrap">
                <span class="logo"><img src="aave.svg" alt="Aave logo" style="width:150px;height:72px;vertical-align:middle;"></span>
-               <a class="deposit" href="https://app.aave.com/" target="_blank" rel="noopener noreferrer">Deposit now</a>
+               <a class="deposit" href="https://app.aave.com/" target="_blank" rel="noopener noreferrer">💧 Deposit now</a>
              </div>`
           : item.name;
 
-        // Up arrow badge with ranks moved (white pill)
         const badge = isAave
           ? `<span class="rank-badge" aria-label="moved up ${rankDeltaUp} places since previous day">
                <span class="arrow">↑</span> ${rankDeltaUp}
@@ -670,6 +714,8 @@
       // borrowed KPI (latest available)
       if (typeof borrowedUSD_latest === 'number'){
         $('#kpiBorrowed').textContent = `$${borrowedUSD_latest.toLocaleString(undefined,{maximumFractionDigits:0})}`;
+      } else {
+        $('#kpiBorrowed').textContent = '—';
       }
       $('#kpiRow').style.display = 'grid';
     }
@@ -704,7 +750,6 @@
       const aUSD  = latestFromHistoryUSD(tvlHist, coercePointUSD) ?? null;
       const bUSD  = latestFromHistoryUSD(borHist, p => typeof p.usd==='number'?p.usd:coerceBorrowedUSD(p));
 
-      // Chart & series
       const series = computeRankSeriesFull(banks, tvlHist, borHist);
       if (series.length){
         $('#rankCard').style.display = 'block';
@@ -714,10 +759,8 @@
       }
       setupHover($('#rankChart'), $('#chartWrap'), $('#tooltip'));
 
-      // KPIs
       updateKpis(banks, aUSD, bUSD);
 
-      // Table with rank delta from series
       const rankDeltaUp = computeRankDeltaUp(series);
       renderToday(banks, aUSD, rankDeltaUp);
 
@@ -771,6 +814,7 @@
         const { tvl, borrowed } = await fetchAaveHistoryFull();
         let todayUSD  = latestFromHistoryUSD(tvl, coercePointUSD);
         if (todayUSD == null){
+          // fallback to /protocols snapshot if tvl series missing today
           const list = await fetchJSON('https://api.llama.fi/protocols');
           const a = list.find(p => p.slug === 'aave') || list.find(p => p.slug === 'aave-v3') || list.find(p => p.slug === 'aave-v2');
           todayUSD = (a && typeof a.tvl === 'number') ? a.tvl : null;
