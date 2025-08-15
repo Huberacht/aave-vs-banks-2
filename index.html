@@ -22,7 +22,6 @@
     header h1{ font-size: clamp(32px, 5vw, 64px); margin:0 0 10px; }
     header p{ margin:0 0 18px; opacity:.95; font-size: clamp(14px, 1.6vw, 18px); }
 
-    /* Controls */
     .actions{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin:10px 0 28px; }
     .group{ background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.28); border-radius:16px; padding:10px; }
     .group h3{ margin:0 0 8px; font-size:14px; opacity:.9; text-transform:uppercase; letter-spacing:.06em; }
@@ -36,7 +35,6 @@
     .pill{ padding:6px 10px; border-radius:999px; background: rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.28); font-size:12px; }
     .muted{ opacity:.85; }
 
-    /* Table */
     table{ width:100%; border-collapse:separate; border-spacing:0; background: var(--card); border-radius:18px; overflow:hidden; }
     th, td{ padding:18px 20px; text-align:left; vertical-align:middle; }
     th{ font-size:14px; letter-spacing:.06em; text-transform:uppercase; opacity:.85; border-bottom:1px solid rgba(255,255,255,.16); }
@@ -46,7 +44,6 @@
     .highlight::before{ content:""; position:absolute; inset:0 auto 0 0; width:6px; background: linear-gradient(180deg, #fff, rgba(255,255,255,.5)); }
     .aave-row.highlight::before{ display:none; }
 
-    /* Aave row content */
     .aave-row .aave-wrap{
       display:flex; align-items:center; gap:12px; flex-wrap:wrap; position: relative;
     }
@@ -57,8 +54,6 @@
       box-shadow:0 6px 18px rgba(0,0,0,.15);
       margin-left:80px; /* move 80px to the right */
     }
-
-    /* Animated arrow (only on Aave row) */
     .moving-arrow{
       display:inline-block; font-size:18px; color:var(--up);
       animation: arrowMove 900ms infinite alternate ease-in-out;
@@ -75,7 +70,6 @@
     .last-updated { text-align:center; margin-top:20px; font-size:12px; opacity:.8; }
     .tagline{ margin-top:20px; font-weight:700; letter-spacing:.02em; text-align:center; }
 
-    /* Chart card */
     .card{
       background: var(--card);
       border-radius:18px;
@@ -90,15 +84,8 @@
       text-transform:uppercase;
       opacity:.9;
     }
-    .chart-wrap{
-      width:100%;
-      position:relative;
-    }
-    canvas{
-      width:100%;
-      height:240px;  /* responsive height; real pixels scaled by DPR in JS */
-      display:block;
-    }
+    .chart-wrap{ width:100%; position:relative; }
+    canvas{ width:100%; height:240px; display:block; }
 
     @media (max-width: 720px){
       thead{ display:none; }
@@ -174,14 +161,11 @@
   </div>
 
   <script>
-    /* ================================
-       Keys / constants
-    ================================= */
-    const BANKS_KEY = 'banksCacheV3';
-    const AAVE_KEY  = 'aaveHistCacheV3';
+    /* ============ Keys / constants ============ */
+    const BANKS_KEY = 'banksCacheV4';
+    const AAVE_KEY  = 'aaveHistCacheV4';
     const AAVE_FALLBACK_B = 12.5;
 
-    // Minimal fallback so first paint isn't empty
     const bankFallback = [
       { name: "JPMORGAN CHASE BK NA", assets: 3643.099 },
       { name: "BANK OF AMER NA", assets: 2615.296 },
@@ -195,32 +179,26 @@
       { name: "STATE STREET B&TC", assets: 368.219 }
     ];
 
-    /* ================================
-       Tiny utils
-    ================================= */
+    /* ============ Utils ============ */
     const $ = sel => document.querySelector(sel);
     const nowISO = () => new Date().toISOString();
     const formatB = v => `$${v.toFixed(1)} B`;
     const readCache  = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
     const writeCache = (k,v) => localStorage.setItem(k, JSON.stringify(v));
     const setBadge = (id, dateOrNull, emptyTxt) => { const el=$(id); el.textContent = dateOrNull ? `Cached: ${new Date(dateOrNull).toLocaleString()}` : emptyTxt; };
-
     function downloadJSON(obj, filename){
       const blob = new Blob([JSON.stringify(obj, null, 2)], { type:'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = filename;
       document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
-
     async function fetchJSON(url){
       const r = await fetch(url, { cache:'no-store' });
       if (!r.ok) throw new Error(`HTTP ${r.status} for ${url}`);
       return r.json();
     }
 
-    /* ================================
-       Fast banks: FRB ASCII (top ~60)
-    ================================= */
+    /* ============ Banks (fast ASCII) ============ */
     async function fetchBanksFast(){
       const asciiURL = 'https://www.federalreserve.gov/releases/lbr/current/lrg_bnk_lst.txt';
       const via = u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`;
@@ -234,7 +212,7 @@
       for (const raw of lines){
         const line = raw.trim();
         if (!line) continue;
-        if (/^[A-Z \/\-]+$/.test(line) && !/\d/.test(line)) continue; // headers
+        if (/^[A-Z \/\-]+$/.test(line) && !/\d/.test(line)) continue;
 
         const cols = line.split(/\s{2,}/);
         if (cols.length < 6) continue;
@@ -244,17 +222,13 @@
         const assetsMil = parseFloat(assetsMilStr);
         if (!Number.isFinite(assetsMil)) continue;
 
-        out.push({ name, assets: assetsMil / 1000 }); // millions → billions
-        if (out.length >= 60) break; // top ~60 is enough
+        out.push({ name, assets: assetsMil / 1000 });
+        if (out.length >= 60) break;
       }
-
-      if (!out.length) throw new Error('No bank rows parsed');
-      return out.sort((a,b)=>b.assets-a.assets);
+      return out.length ? out.sort((a,b)=>b.assets-a.assets) : bankFallback;
     }
 
-    /* ================================
-       Aave historical (protocol/aave)
-    ================================= */
+    /* ============ Aave history ============ */
     function coercePointUSD(x){
       if (typeof x === 'number') return x;
       if (x && typeof x === 'object'){
@@ -264,30 +238,26 @@
       return null;
     }
     function extractPointDate(x, fallbackDate){
-      // try common fields (unix seconds)
       if (x && typeof x === 'object'){
         if (typeof x.date === 'number') return new Date(x.date * 1000);
         if (typeof x.timestamp === 'number') return new Date(x.timestamp * 1000);
         if (typeof x.ts === 'number') return new Date(x.ts * 1000);
         if (typeof x.time === 'number') return new Date(x.time * 1000);
-        if (typeof x.date === 'string') { const d = new Date(x.date); if (!isNaN(+d)) return d; }
+        if (typeof x.date === 'string'){ const d = new Date(x.date); if (!isNaN(+d)) return d; }
       }
       return fallbackDate ?? null;
     }
     function latestFromHistoryUSD(arr){
       for (let i=(arr?.length||0)-1; i>=0; i--){
         const v = coercePointUSD(arr[i]);
-        if (typeof v === 'number' && v>1e7 && v<1e12) return v; // sanity: $10M–$1T
+        if (typeof v === 'number' && v>1e7 && v<1e12) return v;
       }
       return null;
     }
-
-    async function fetchAaveHistory(){ // full history for aave.json
+    async function fetchAaveHistory(){
       const data = await fetchJSON('https://api.llama.fi/protocol/aave');
       return Array.isArray(data.tvl) ? data.tvl : [];
     }
-
-    // Fallback single “today” value for paint if history last point is bad
     async function fallbackAaveTodayUSD(){
       try{
         const list = await fetchJSON('https://api.llama.fi/protocols');
@@ -296,71 +266,52 @@
       }catch{ return null; }
     }
 
-    /* ================================
-       Rank computation & charting
-    ================================= */
+    /* ============ Rank series + chart ============ */
     function computeDailyRankSeries(banks, aaveHist, days=365){
-      // banks are constant; sort descending by assets
       const bankAssetsB = [...banks].map(b => b.assets).sort((a,b)=>b-a);
-
-      // Build points with dates (or synthesize)
       const N = aaveHist?.length || 0;
       if (!N) return [];
       const today = new Date();
-      const points = [];
+      let pts = [];
 
-      // First pass: try to get as many dated points as possible
       for (let i=0;i<N;i++){
         const p = aaveHist[i];
         const usd = coercePointUSD(p);
         if (typeof usd !== 'number') continue;
         const d = extractPointDate(p, null);
-        points.push({ date: d, tvlB: usd / 1e9 });
+        pts.push({ date: d, tvlB: usd / 1e9 });
       }
 
-      // If many points lack dates, synthesize consecutive days ending today
-      if (points.every(pt => !pt.date)) {
-        // take the last `days` usable points, assign dates backwards
-        const usable = points.slice(-days);
-        for (let i=0;i<usable.length;i++){
+      if (!pts.length) return [];
+      if (pts.every(pt => !pt.date)) {
+        // synthesize dates for last `days` points
+        pts = pts.slice(-days);
+        for (let i=0;i<pts.length;i++){
           const d = new Date(today);
-          d.setDate(d.getDate() - (usable.length - 1 - i));
-          usable[i].date = d;
+          d.setDate(d.getDate() - (pts.length - 1 - i));
+          pts[i].date = d;
         }
-        // replace points with usable only
-        points.length = 0;
-        points.push(...usable);
       } else {
-        // Keep only points that have dates
-        const withDates = points.filter(pt => pt.date instanceof Date && !isNaN(+pt.date));
-        withDates.sort((a,b)=>a.date - b.date);
-        // clip to last `days`
-        const startIdx = Math.max(0, withDates.length - days);
-        const clipped = withDates.slice(startIdx);
-        points.length = 0;
-        points.push(...clipped);
+        pts = pts.filter(pt => pt.date instanceof Date && !isNaN(+pt.date))
+                 .sort((a,b)=>a.date - b.date)
+                 .slice(-days);
       }
 
-      // Convert to rank (1 = best/highest)
-      const series = points.map(pt => {
-        // rank is #banks strictly above Aave + 1
+      return pts.map(pt => {
         let above = 0;
         for (let i=0;i<bankAssetsB.length;i++){
-          if (bankAssetsB[i] > pt.tvlB) above++;
-          else break; // sorted desc
+          if (bankAssetsB[i] > pt.tvlB) above++; else break;
         }
         return { t: pt.date, rank: above + 1 };
       });
-
-      return series;
     }
 
     function drawRankChart(canvas, series){
       if (!canvas || !series?.length) return;
 
       const DPR = Math.max(1, Math.floor(window.devicePixelRatio || 1));
-      const cssW = canvas.clientWidth;
-      const cssH = canvas.clientHeight;
+      const cssW = canvas.clientWidth || 600;
+      const cssH = canvas.clientHeight || 240;
       const W = Math.max(320, Math.floor(cssW * DPR));
       const H = Math.max(160, Math.floor(cssH * DPR));
       canvas.width = W;
@@ -369,36 +320,32 @@
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0,0,W,H);
 
-      // Padding for axes labels
       const PAD_L = 46, PAD_R = 12, PAD_T = 16, PAD_B = 28;
       const plotW = W - PAD_L - PAD_R;
       const plotH = H - PAD_T - PAD_B;
 
-      // y domain: ranks (smaller is better)
       let minR = Infinity, maxR = -Infinity;
       for (const s of series){ if (s.rank < minR) minR = s.rank; if (s.rank > maxR) maxR = s.rank; }
-      // keep at least some spread
       if (!isFinite(minR) || !isFinite(maxR)) return;
       if (minR === maxR){ minR = Math.max(1, minR-1); maxR = maxR+1; }
 
-      // x domain: time
       const t0 = series[0].t.getTime();
       const t1 = series[series.length-1].t.getTime();
       const dt = t1 - t0 || 1;
 
       const x = (t) => PAD_L + ((t - t0) / dt) * plotW;
-      const y = (r) => PAD_T + ((r - minR) / (maxR - minR)) * plotH; // rank increases downward
+      const y = (r) => PAD_T + ((r - minR) / (maxR - minR)) * plotH;
 
-      // Grid (horizontal lines for ranks: min, mid, max)
-      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid');
+      const grid = getComputedStyle(document.documentElement).getPropertyValue('--grid');
+      const line = getComputedStyle(document.documentElement).getPropertyValue('--line');
+
+      ctx.strokeStyle = grid;
       ctx.lineWidth = Math.max(1, DPR);
       const yMin = y(minR), yMax = y(maxR), yMid = y((minR+maxR)/2);
-
       ctx.beginPath(); ctx.moveTo(PAD_L, yMin); ctx.lineTo(W-PAD_R, yMin); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(PAD_L, yMid); ctx.lineTo(W-PAD_R, yMid); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(PAD_L, yMax); ctx.lineTo(W-PAD_R, yMax); ctx.stroke();
 
-      // Axis labels (left: min/max rank)
       ctx.fillStyle = 'rgba(255,255,255,.9)';
       ctx.font = `${12*DPR}px Arial`;
       ctx.textAlign = 'right';
@@ -406,16 +353,11 @@
       ctx.fillText(`#${Math.round(minR)}`, PAD_L - 8, yMin);
       ctx.fillText(`#${Math.round(maxR)}`, PAD_L - 8, yMax);
 
-      // X labels (start/end dates)
       const fmt = (d)=>d.toLocaleDateString(undefined,{year:'2-digit',month:'short',day:'2-digit'});
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(fmt(series[0].t), PAD_L, H - PAD_B + 6*DPR);
-      ctx.textAlign = 'right';
-      ctx.fillText(fmt(series[series.length-1].t), W - PAD_R, H - PAD_B + 6*DPR);
+      ctx.textAlign = 'left';  ctx.textBaseline = 'top'; ctx.fillText(fmt(series[0].t), PAD_L, H - PAD_B + 6*DPR);
+      ctx.textAlign = 'right'; ctx.fillText(fmt(series[series.length-1].t), W - PAD_R, H - PAD_B + 6*DPR);
 
-      // Line
-      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--line');
+      ctx.strokeStyle = line;
       ctx.lineWidth = Math.max(2, 2*DPR);
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
@@ -427,7 +369,6 @@
       }
       ctx.stroke();
 
-      // Glow (subtle)
       ctx.strokeStyle = 'rgba(255,255,255,.35)';
       ctx.lineWidth = Math.max(6, 6*DPR);
       ctx.globalAlpha = .35;
@@ -449,12 +390,11 @@
         return;
       }
       card.style.display = 'block';
-      drawRankChart($('#rankChart'), series);
+      // ensure the card is visible before measuring canvas width
+      requestAnimationFrame(() => drawRankChart($('#rankChart'), series));
     }
 
-    /* ================================
-       Rendering (today only)
-    ================================= */
+    /* ============ Today table ============ */
     function renderToday(banks, aaveUSD_or_null){
       const tbody = $('#tableBody');
       tbody.innerHTML = '';
@@ -483,10 +423,7 @@
              </div>`
           : item.name;
 
-        // ONLY Aave shows a moving arrow (left toward logo)
-        const badge = isAave
-          ? `<span class="moving-arrow" aria-label="moving arrow toward Aave">⇠</span>`
-          : '';
+        const badge = isAave ? `<span class="moving-arrow" aria-label="moving arrow toward Aave">⇠</span>` : '';
 
         tr.innerHTML = `
           <td data-label="Rank">${rank}${badge}</td>
@@ -501,35 +438,47 @@
       msg.textContent = `Showing Aave (rank ${idx+1}) vs banks • Today only`;
     }
 
-    /* ================================
-       Boot
-    ================================= */
+    /* ============ Boot ============ */
     async function boot(){
-      const banksCache = readCache(BANKS_KEY);
-      const aaveCache  = readCache(AAVE_KEY);
+      let banksCache = readCache(BANKS_KEY);
+      let aaveCache  = readCache(AAVE_KEY);
 
-      setBadge('#banksBadge', banksCache?.updatedAt, 'No banks cache yet');
-      setBadge('#aaveBadge',  aaveCache?.updatedAt,  'No aave cache yet');
+      // If missing, auto-fetch so the chart is available on first load
+      if (!banksCache){
+        try {
+          const banks = await fetchBanksFast();
+          banksCache = { updatedAt: nowISO(), banks };
+          writeCache(BANKS_KEY, banksCache);
+        } catch { banksCache = { updatedAt: nowISO(), banks: bankFallback }; }
+      }
+      if (!aaveCache){
+        try {
+          const history = await fetchAaveHistory();
+          aaveCache = { updatedAt: nowISO(), history };
+          writeCache(AAVE_KEY, aaveCache);
+        } catch { aaveCache = { updatedAt: nowISO(), history: [] }; }
+      }
 
-      const banks = banksCache?.banks || bankFallback;
-      const aHist = aaveCache?.history || [];
-      const aUSD  = latestFromHistoryUSD(aHist);
+      setBadge('#banksBadge', banksCache.updatedAt, 'No banks cache yet');
+      setBadge('#aaveBadge',  aaveCache.updatedAt,  'No aave cache yet');
+
+      const banks = banksCache.banks || bankFallback;
+      const aHist = aaveCache.history || [];
+      const aUSD  = latestFromHistoryUSD(aHist) ?? null;
 
       renderToday(banks, aUSD);
       rebuildChart(banks, aHist);
 
       $('#loading').style.display = 'none';
       $('#dataTable').style.display = 'table';
-      const ts = banksCache?.updatedAt || aaveCache?.updatedAt || nowISO();
+      const ts = banksCache.updatedAt || aaveCache.updatedAt || nowISO();
       $('#lastUpdated').textContent = `Last updated: ${new Date(ts).toLocaleString()}`;
 
-      // responsive chart
-      window.addEventListener('resize', () => drawRankChart($('#rankChart'), computeDailyRankSeries(banks, aHist, 365)));
+      // responsive redraw
+      window.addEventListener('resize', () => rebuildChart(banks, aHist));
     }
 
-    /* ================================
-       Buttons
-    ================================= */
+    /* ============ Buttons ============ */
     $('#refreshBanks').addEventListener('click', async (e)=>{
       const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Refreshing…';
       try{
@@ -556,8 +505,8 @@
     $('#refreshAave').addEventListener('click', async (e)=>{
       const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Refreshing…';
       try{
-        const history = await fetchAaveHistory();       // full series for file
-        let todayUSD  = latestFromHistoryUSD(history);  // for paint
+        const history = await fetchAaveHistory();
+        let todayUSD  = latestFromHistoryUSD(history);
         if (todayUSD == null) todayUSD = await fallbackAaveTodayUSD();
 
         const stamp = nowISO();
