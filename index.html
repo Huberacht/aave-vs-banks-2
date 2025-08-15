@@ -97,7 +97,6 @@
       width:6px;
       background: linear-gradient(180deg, #fff, rgba(255,255,255,.5));
     }
-    /* Remove the left white strip for the Aave row only */
     .aave-row.highlight::before{ display:none; }
 
     .rank-change{
@@ -205,7 +204,6 @@
     function writeCache(data){
       try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch {}
     }
-    function clearCache(){ try { localStorage.removeItem(CACHE_KEY); } catch {} }
 
     // ---------------- Fallback bank data ----------------
     const bankData = [
@@ -286,33 +284,35 @@
     ];
 
     // ---------------- Utils & fetchers ----------------
-    function formatAssets(amount) {
-      return `$${amount.toFixed(1)} B`;
-    }
+    function formatAssets(amount) { return `$${amount.toFixed(1)} B`; }
 
     function generateRankChange() {
       const up = Math.random() > 0.5;
-      const places = Math.floor(Math.random() * 4) + 1; // 1–4 places
+      const places = Math.floor(Math.random() * 4) + 1;
       return { direction: up ? 'up' : 'down', places, symbol: up ? '▲' : '▼' };
     }
 
     async function fetchAaveTVL() {
+      const bust = Date.now();
       try {
-        const res = await fetch('https://api.llama.fi/protocol/aave', { cache: 'no-store' });
+        // Add a query param to defeat CDNs/proxies
+        const res = await fetch(`https://api.llama.fi/protocol/aave?cb=${bust}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('Bad response');
         const data = await res.json();
         const last = data?.tvl?.[data.tvl.length - 1] || {};
         const tvl = last.totalLiquidityUSD ?? last.totalLiquidityUsd ?? last.totalLiquidity;
-        if (typeof tvl === 'number') return tvl / 1_000_000_000; // billions
+        if (typeof tvl === 'number') return tvl / 1_000_000_000;
       } catch (e) { console.error('Aave TVL fetch failed', e); }
       return null;
     }
 
     async function fetchBankData() {
+      const bust = Date.now();
       try {
+        // Bust both the proxy and the target URL
         const proxyUrl = 'https://api.allorigins.win/get?url=';
-        const targetUrl = encodeURIComponent('https://www.federalreserve.gov/releases/lbr/current/');
-        const response = await fetch(proxyUrl + targetUrl, { cache: 'no-store' });
+        const target = encodeURIComponent(`https://www.federalreserve.gov/releases/lbr/current/?cb=${bust}`);
+        const response = await fetch(`${proxyUrl}${target}&cb=${bust}`, { cache: 'no-store' });
         if (!response.ok) throw new Error('Failed to fetch bank data');
 
         const { contents } = await response.json();
@@ -327,14 +327,14 @@
             const assetsStr = tds[5]?.textContent?.trim() || '';
             if ((name.includes('BK') || name.includes('BANK')) && assetsStr) {
               const n = parseFloat(assetsStr.replace(/[^0-9.]/g, ''));
-              if (!isNaN(n) && n > 100) extracted.push({ name: name.split('/')[0].trim(), assets: n / 1000 }); // millions → billions
+              if (!isNaN(n) && n > 100) extracted.push({ name: name.split('/')[0].trim(), assets: n / 1000 });
             }
           }
         }
         return extracted.sort((a,b)=>b.assets-a.assets).slice(0, 50);
       } catch (e) {
         console.error('Bank fetch failed', e);
-        return bankData;
+        return bankData; // fallback
       }
     }
 
@@ -406,39 +406,45 @@
     }
 
     // ---------------- Data flow ----------------
+    let refreshToken = 0; // prevents stale responses winning races
+
     async function doNetworkRefresh({ showHint = true } = {}) {
+      const myToken = ++refreshToken;
       setUIState({ loading: true });
+
+      let allBanks = bankData;
+      let aaveTVL = 12.5;
+
       try {
-        const [banks, aaveTVL] = await Promise.all([fetchBankData(), fetchAaveTVL()]);
-        const allBanks = banks.length > 20 ? banks : bankData;
-        renderTable(allBanks, aaveTVL ?? 12.5);
+        const [banks, tvl] = await Promise.all([fetchBankData(), fetchAaveTVL()]);
+        if (banks?.length > 20) allBanks = banks;
+        if (typeof tvl === 'number') aaveTVL = tvl;
+      } catch (e) {
+        console.error('Refresh failed', e);
+      } finally {
+        // If another refresh started after this one, ignore this result
+        if (myToken !== refreshToken) return;
+        renderTable(allBanks, aaveTVL);
         setUIState({ loading: false });
         const nowISO = new Date().toISOString();
         setLastUpdated(nowISO);
-        writeCache({ banks: allBanks, aaveTVL: aaveTVL ?? 12.5, updatedAt: nowISO });
-      } catch (e) {
-        console.error('Refresh failed', e);
-        renderTable(bankData, 12.5);
-        setUIState({ loading: false });
-        setLastUpdated(null, '(Fallback Data)');
-      }
+        writeCache({ banks: allBanks, aaveTVL, updatedAt: nowISO });
 
-      if (showHint) {
-        const hint = document.getElementById('refreshHint');
-        setTimeout(() => { hint.textContent = 'You might need to refresh.'; }, 2500);
+        if (showHint) {
+          const hint = document.getElementById('refreshHint');
+          setTimeout(() => { if (myToken === refreshToken) hint.textContent = 'You might need to refresh.'; }, 2500);
+        }
       }
     }
 
     async function loadFromCacheOrFetchOnce() {
       const cached = readCache();
       if (cached?.banks?.length) {
-        // Fast path: render instantly from cache
         renderTable(cached.banks, cached.aaveTVL ?? 12.5);
         setUIState({ loading: false });
         setLastUpdated(cached.updatedAt, '(cached)');
         return;
       }
-      // First ever visit: do one fetch
       await doNetworkRefresh({ showHint: false });
     }
 
@@ -451,20 +457,23 @@
         btn.disabled = true;
         const original = btn.textContent;
         btn.textContent = 'Refreshing…';
-        await doNetworkRefresh({ showHint: true });
-        btn.textContent = original;
-        btn.disabled = false;
+        try {
+          await doNetworkRefresh({ showHint: true });
+        } finally {
+          btn.textContent = original;
+          btn.disabled = false;
+        }
       });
     }
 
     // ---------------- Boot ----------------
     document.addEventListener('DOMContentLoaded', async () => {
-      setUIState({ loading: true });     // ensure spinner is visible until we render
+      setUIState({ loading: true });
       setupRefresh();
-      await loadFromCacheOrFetchOnce();  // render cache or fetch once
+      await loadFromCacheOrFetchOnce();
     });
 
-    // ❌ No auto/timed refreshes anywhere.
+    // No timers / auto refreshes.
   </script>
 </body>
 </html>
