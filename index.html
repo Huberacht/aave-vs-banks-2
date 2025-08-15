@@ -97,7 +97,6 @@
       width:6px;
       background: linear-gradient(180deg, #fff, rgba(255,255,255,.5));
     }
-    /* Remove the left white strip for the Aave row only */
     .aave-row.highlight::before{ display:none; }
 
     .rank-change{
@@ -118,12 +117,13 @@
       vertical-align: middle;
     }
 
-    /* NEW: Aave CTA pill next to the logo */
+    /* Aave CTA pill next to the logo */
     .aave-cta {
+      position: relative;
       display:inline-flex;
       align-items:center;
       gap:10px;
-      margin-left:16px;               /* “a bit to the right from logo” */
+      margin-left:150px;              /* whole pill moved 150px from logo */
       padding:8px 12px;
       border-radius:999px;            /* capsule */
       background: rgba(255,255,255,.12);
@@ -133,6 +133,7 @@
       text-decoration:none;
       white-space:nowrap;
       transition: background .2s ease, transform .06s ease;
+      overflow: visible;              /* allow arrow to fly out */
     }
     .aave-cta:hover{ background: rgba(255,255,255,.18); }
     .aave-cta:active{ transform: translateY(1px); }
@@ -140,12 +141,13 @@
       display:inline-block;
       font-size:16px;
       line-height:1;
-      transform: translateX(0);
-      animation: arrow-nudge 1.2s ease-in-out infinite;
+      will-change: transform;
+      animation: arrow-nudge 1.4s ease-in-out infinite;
     }
+    /* Arrow travels ~250px to the right at mid-cycle, no layout shift */
     @keyframes arrow-nudge {
-      0%,100% { transform: translateX(0); }
-      50%     { transform: translateX(4px); }
+      0%, 100% { transform: translateX(0); }
+      50%      { transform: translateX(250px); }
     }
 
     .loading {
@@ -192,8 +194,7 @@
         font-weight:700; opacity:.9;
       }
       .highlight::before{ width:4px; }
-      /* On small screens let the CTA wrap under the logo nicely */
-      .aave-cta{ display:inline-flex; margin-left:8px; margin-top:8px; }
+      .aave-cta{ margin-left:24px; margin-top:8px; }
     }
   </style>
 </head>
@@ -325,22 +326,27 @@
       return { direction: up ? 'up' : 'down', places, symbol: up ? '▲' : '▼' };
     }
 
+    // Aave API TVL (client-side, no key). Returns TVL in billions.
     async function fetchAaveTVL() {
-      const bust = Date.now();
+      const url = 'https://aave-api-v2.aave.com/data/tvl?cb=' + Date.now();
       try {
-        const res = await fetch(`https://api.llama.fi/protocol/aave?cb=${bust}`, { cache: 'no-store' });
-        if (!res.ok) throw new Error('Bad response');
-        const data = await res.json();
-        const last = data?.tvl?.[data.tvl.length - 1] || {};
-        const tvl = last.totalLiquidityUSD ?? last.totalLiquidityUsd ?? last.totalLiquidity;
-        if (typeof tvl === 'number') return tvl / 1_000_000_000;
-      } catch (e) { console.error('Aave TVL fetch failed', e); }
+        const r = await fetch(url, { cache: 'no-store' });
+        if (!r.ok) throw new Error('Aave API error ' + r.status);
+        const data = await r.json();
+        const tvlUsd = typeof data === 'number'
+          ? data
+          : (data?.tvl ?? data?.value ?? data?.usd ?? null);
+        if (typeof tvlUsd === 'number') return tvlUsd / 1_000_000_000;
+      } catch (e) {
+        console.error('Aave TVL fetch failed:', e);
+      }
       return null;
     }
 
     async function fetchBankData() {
       const bust = Date.now();
       try {
+        // Scrape via proxy; if blocked/slow, fallback dataset is used.
         const proxyUrl = 'https://api.allorigins.win/get?url=';
         const target = encodeURIComponent(`https://www.federalreserve.gov/releases/lbr/current/?cb=${bust}`);
         const response = await fetch(`${proxyUrl}${target}&cb=${bust}`, { cache: 'no-store' });
@@ -358,14 +364,14 @@
             const assetsStr = tds[5]?.textContent?.trim() || '';
             if ((name.includes('BK') || name.includes('BANK')) && assetsStr) {
               const n = parseFloat(assetsStr.replace(/[^0-9.]/g, ''));
-              if (!isNaN(n) && n > 100) extracted.push({ name: name.split('/')[0].trim(), assets: n / 1000 });
+              if (!isNaN(n) && n > 100) extracted.push({ name: name.split('/')[0].trim(), assets: n / 1000 }); // millions→billions
             }
           }
         }
         return extracted.sort((a,b)=>b.assets-a.assets).slice(0, 50);
       } catch (e) {
         console.error('Bank fetch failed', e);
-        return bankData; // fallback
+        return bankData;
       }
     }
 
