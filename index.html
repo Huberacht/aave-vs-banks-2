@@ -3,89 +3,46 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Aave vs Banks — full history + hover</title>
+  <title>Aave vs Banks — full bank list + chart</title>
   <style>
     :root{
       --bg:#9C8CF4;
-      --card:rgba(255,255,255,.06);
+      --card:rgba(255,255,255,.10);
       --card-2:rgba(255,255,255,.08);
       --highlight:rgba(255,255,255,.22);
       --text:#ffffff;
       --ink:#0b061d;
       --up:#31d158;
-      --line: rgba(255,255,255,.96);
-      --grid: rgba(255,255,255,.14);
+      --line: rgba(255,255,255,1);
+      --grid: rgba(255,255,255,.18);
       --tooltipBg: rgba(15, 10, 30, .92);
-      --tooltipBorder: rgba(255,255,255,.2);
+      --tooltipBorder: rgba(255,255,255,.25);
+      --stroke: rgba(0,0,0,.15);
     }
     *{ box-sizing:border-box }
     body{ margin:0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
-    .container{ max-width:1000px; margin:0 auto; padding:48px 20px 24px; }
-    header h1{ font-size: clamp(32px, 5vw, 64px); margin:0 0 10px; }
-    header p{ margin:0 0 18px; opacity:.95; font-size: clamp(14px, 1.6vw, 18px); }
+    .container{ max-width:1000px; margin:0 auto; padding:40px 18px 24px; }
 
-    .actions{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin:10px 0 28px; }
-    .group{ background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.28); border-radius:16px; padding:10px; }
-    .group h3{ margin:0 0 8px; font-size:14px; opacity:.9; text-transform:uppercase; letter-spacing:.06em; }
-    .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-    .btn{
-      background:#fff; color:var(--ink); border:none; border-radius:999px; padding:9px 12px;
-      font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,.15);
-      text-decoration:none; display:inline-flex; align-items:center; gap:6px;
-    }
-    .btn:disabled{ opacity:.6; cursor:not-allowed; }
-    .pill{ padding:6px 10px; border-radius:999px; background: rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.28); font-size:12px; }
-    .muted{ opacity:.85; }
+    header h1{ font-size: clamp(32px, 5vw, 60px); margin:0 0 6px; }
+    header p{ margin:0 0 12px; opacity:.95; font-size: clamp(14px, 1.6vw, 18px); }
 
-    table{ width:100%; border-collapse:separate; border-spacing:0; background: var(--card); border-radius:18px; overflow:hidden; }
-    th, td{ padding:18px 20px; text-align:left; vertical-align:middle; }
-    th{ font-size:14px; letter-spacing:.06em; text-transform:uppercase; opacity:.85; border-bottom:1px solid rgba(255,255,255,.16); }
-    tr:nth-child(even){ background: var(--card-2); }
-
-    .highlight{ position:relative; background: var(--highlight) !important; font-weight:700; }
-    .highlight::before{ content:""; position:absolute; inset:0 auto 0 0; width:6px; background: linear-gradient(180deg, #fff, rgba(255,255,255,.5)); }
-    .aave-row.highlight::before{ display:none; }
-
-    .aave-row .aave-wrap{
-      display:flex; align-items:center; gap:12px; flex-wrap:wrap; position: relative;
-    }
-    .aave-row .logo{ width:72px; height:72px; display:inline-block; }
-    .aave-row .deposit{
-      background:#fff; color:var(--ink); text-decoration:none;
-      border-radius:999px; padding:8px 12px; font-weight:800;
-      box-shadow:0 6px 18px rgba(0,0,0,.15);
-      margin-left:80px; /* as requested */
-    }
-    .moving-arrow{
-      display:inline-block; font-size:18px; color:var(--up);
-      animation: arrowMove 900ms infinite alternate ease-in-out;
-      transform-origin:center;
-      margin-left:8px;
-    }
-    @keyframes arrowMove{
-      from { transform: translateX(0); }
-      to   { transform: translateX(-8px); } /* move left toward the logo */
-    }
-
-    .loading { text-align:center; padding:40px; opacity:.7; }
-    .error { color:#fff; text-align:center; padding:20px; font-size:14px; opacity:.85; }
-    .last-updated { text-align:center; margin-top:20px; font-size:12px; opacity:.8; }
-    .tagline{ margin-top:20px; font-weight:700; letter-spacing:.02em; text-align:center; }
-
+    /* Card */
     .card{
       background: var(--card);
       border-radius:18px;
-      padding:16px 16px 8px;
-      margin-top:18px;
-      border:1px solid rgba(255,255,255,.16);
+      padding:14px 14px 8px;
+      border:1px solid rgba(255,255,255,.22);
+      box-shadow:0 6px 30px rgba(0,0,0,.18);
     }
     .card h3{
       margin:0 0 8px;
-      font-size:14px;
-      letter-spacing:.06em;
+      font-size:13px;
+      letter-spacing:.08em;
       text-transform:uppercase;
-      opacity:.9;
+      opacity:.95;
     }
+
+    /* Chart on top (moved above buttons) */
     .chart-wrap{ width:100%; position:relative; }
     canvas{ width:100%; height:260px; display:block; }
 
@@ -107,10 +64,84 @@
     }
     .tooltip .muted{ opacity:.8; }
 
+    /* Buttons section moved below chart, tighter gap */
+    .actions{
+      display:grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr));
+      gap:10px; margin:14px 0 14px;
+    }
+    .group{ background:var(--card); border:1px solid rgba(255,255,255,.22); border-radius:16px; padding:10px; }
+    .group h3{ margin:0 0 8px; font-size:13px; opacity:.95; text-transform:uppercase; letter-spacing:.06em; }
+    .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .btn{
+      background:#fff; color:var(--ink); border:none; border-radius:999px; padding:9px 12px;
+      font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,.15);
+      text-decoration:none; display:inline-flex; align-items:center; gap:6px;
+    }
+    .btn:disabled{ opacity:.6; cursor:not-allowed; }
+    .pill{ padding:6px 10px; border-radius:999px; background: rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.28); font-size:12px; }
+
+    /* Table — higher contrast, less gap, bigger TVL numbers */
+    .table-container{ margin-top:10px; }
+    table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      background: var(--card);
+      border-radius:18px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.22);
+      box-shadow:0 8px 30px rgba(0,0,0,.18);
+    }
+    th, td{ padding:14px 18px; text-align:left; vertical-align:middle; }
+    th{
+      font-size:13px;
+      letter-spacing:.07em;
+      text-transform:uppercase;
+      opacity:.95;
+      background: rgba(255,255,255,.10);
+      border-bottom:1px solid rgba(255,255,255,.22);
+      position:sticky; top:0; backdrop-filter: blur(6px);
+    }
+    tr:nth-child(even){ background: var(--card-2); }
+    tbody tr:not(:last-child) td{
+      border-bottom:1px dashed rgba(255,255,255,.18);
+    }
+
+    .highlight{ position:relative; background: var(--highlight) !important; font-weight:700; }
+    .highlight::before{ content:""; position:absolute; inset:0 auto 0 0; width:6px; background: linear-gradient(180deg, #fff, rgba(255,255,255,.5)); }
+    .aave-row.highlight::before{ display:none; }
+
+    .assets{
+      font-size: clamp(16px, 2vw, 20px);
+      font-weight: 900;
+      letter-spacing: .02em;
+    }
+
+    /* Aave visuals */
+    .aave-row .aave-wrap{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; position: relative; }
+    .aave-row .logo{ width:72px; height:72px; display:inline-block; }
+    .aave-row .deposit{
+      background:#fff; color:var(--ink); text-decoration:none;
+      border-radius:999px; padding:8px 12px; font-weight:800;
+      box-shadow:0 6px 18px rgba(0,0,0,.15);
+      margin-left:80px;
+    }
+    .moving-arrow{
+      display:inline-block; font-size:18px; color:var(--up);
+      animation: arrowMove 900ms infinite alternate ease-in-out;
+      transform-origin:center; margin-left:8px;
+    }
+    @keyframes arrowMove{ from { transform: translateX(0); } to { transform: translateX(-8px); } }
+
+    .loading { text-align:center; padding:20px; opacity:.8; }
+    .error { color:#fff; text-align:center; padding:10px; font-size:13px; opacity:.9; }
+    .last-updated { text-align:center; margin-top:12px; font-size:12px; opacity:.9; }
+    .tagline{ margin-top:12px; font-weight:700; letter-spacing:.02em; text-align:center; }
+
     @media (max-width: 720px){
       thead{ display:none; }
       table, tbody, tr, td{ display:block; width:100%; }
-      tr{ padding:12px 14px; }
+      tr{ padding:10px 12px; }
       td{
         padding:8px 6px 8px 120px; position:relative;
         border-bottom:1px dashed rgba(255,255,255,.18);
@@ -118,7 +149,7 @@
       td::before{ content: attr(data-label); position:absolute; left:14px; top:8px; font-weight:700; opacity:.9; }
       .highlight::before{ width:4px; }
       .aave-row .aave-wrap{ align-items:flex-start; }
-      canvas{ height:240px; }
+      canvas{ height:220px; }
     }
   </style>
 </head>
@@ -127,32 +158,43 @@
     <header>
       <h1>Aave vs Banks</h1>
       <p>Built in a rush with love by Hoobi</p>
-
-      <div class="actions">
-        <div class="group" id="bankControls">
-          <h3>Bank data file (banks.json)</h3>
-          <div class="row">
-            <button id="refreshBanks" class="btn">🔄 Refresh Bank Data</button>
-            <button id="exportBanks" class="btn">💾 Export Banks</button>
-          </div>
-          <div class="row" style="margin-top:8px">
-            <span class="pill muted" id="banksBadge">No banks cache yet</span>
-          </div>
-        </div>
-
-        <div class="group" id="aaveControls">
-          <h3>Aave historical file (aave.json)</h3>
-          <div class="row">
-            <button id="refreshAave" class="btn">🔄 Refresh Aave Data</button>
-            <button id="exportAave" class="btn">💾 Export Aave</button>
-          </div>
-          <div class="row" style="margin-top:8px">
-            <span class="pill muted" id="aaveBadge">No aave cache yet</span>
-          </div>
-        </div>
-      </div>
     </header>
 
+    <!-- CHART FIRST -->
+    <div class="card" id="rankCard" style="display:none; margin-top:8px;">
+      <h3>Aave rank (full history)</h3>
+      <div class="chart-wrap" id="chartWrap">
+        <canvas id="rankChart" aria-label="Aave daily rank over full history" role="img"></canvas>
+        <div class="tooltip" id="tooltip"></div>
+      </div>
+    </div>
+
+    <!-- FILE BUTTONS BELOW CHART -->
+    <div class="actions">
+      <div class="group" id="bankControls">
+        <h3>Bank data file (banks.json)</h3>
+        <div class="row">
+          <button id="refreshBanks" class="btn">🔄 Refresh Bank Data</button>
+          <button id="exportBanks" class="btn">💾 Export Banks</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <span class="pill" id="banksBadge">No banks cache yet</span>
+        </div>
+      </div>
+
+      <div class="group" id="aaveControls">
+        <h3>Aave historical file (aave.json)</h3>
+        <div class="row">
+          <button id="refreshAave" class="btn">🔄 Refresh Aave Data</button>
+          <button id="exportAave" class="btn">💾 Export Aave</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <span class="pill" id="aaveBadge">No aave cache yet</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE (tighter spacing, stronger contrast, bigger TVL) -->
     <div class="table-container">
       <div id="loading" class="loading" role="status" aria-live="polite">Loading…</div>
       <table id="dataTable" style="display:none;" aria-label="Aave vs Banks ranking">
@@ -168,22 +210,13 @@
       <div id="msg" class="error" style="display:none;"></div>
     </div>
 
-    <!-- Chart -->
-    <div class="card" id="rankCard" style="display:none;">
-      <h3>Aave rank (full history)</h3>
-      <div class="chart-wrap" id="chartWrap">
-        <canvas id="rankChart" aria-label="Aave daily rank over full history" role="img"></canvas>
-        <div class="tooltip" id="tooltip"></div>
-      </div>
-    </div>
-
     <div id="lastUpdated" class="last-updated" aria-live="polite"></div>
     <p class="tagline">DeFi will win, Ethereum will win!</p>
   </div>
 
   <script>
     /* ==== Keys / constants ==== */
-    const BANKS_KEY = 'banksCacheV5';
+    const BANKS_KEY = 'banksCacheV7';
     const AAVE_KEY  = 'aaveHistCacheV5';
     const AAVE_FALLBACK_B = 12.5;
 
@@ -210,7 +243,8 @@
     function downloadJSON(obj, filename){
       const blob = new Blob([JSON.stringify(obj, null, 2)], { type:'application/json' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      const a = document.createElement('a'); a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
     async function fetchJSON(url){
       const r = await fetch(url, { cache:'no-store' });
@@ -218,8 +252,8 @@
       return r.json();
     }
 
-    /* ==== Banks (fast ASCII) ==== */
-    async function fetchBanksFast(){
+    /* ==== Banks (FULL list via ASCII) ==== */
+    async function fetchBanksFull(){
       const asciiURL = 'https://www.federalreserve.gov/releases/lbr/current/lrg_bnk_lst.txt';
       const via = u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`;
       const res = await fetch(via(asciiURL), { cache:'no-store' });
@@ -232,6 +266,7 @@
         const line = raw.trim();
         if (!line) continue;
         if (/^[A-Z \/\-]+$/.test(line) && !/\d/.test(line)) continue;
+
         const cols = line.split(/\s{2,}/);
         if (cols.length < 6) continue;
 
@@ -241,7 +276,6 @@
         if (!Number.isFinite(assetsMil)) continue;
 
         out.push({ name, assets: assetsMil / 1000 });
-        if (out.length >= 80) break; // a bit deeper for rank stability
       }
       return out.length ? out.sort((a,b)=>b.assets-a.assets) : bankFallback;
     }
@@ -285,11 +319,8 @@
     }
 
     /* ==== Rank series (FULL history) ==== */
-    // Returns [{ t:Date, tvlB:Number, rank:Number }]
     function computeRankSeriesFull(banks, aaveHist){
       const bankAssetsB = [...banks].map(b => b.assets).sort((a,b)=>b-a);
-
-      // Build points with dates (or synthesize evenly if none present)
       const today = new Date();
       let pts = [];
       for (let i=0;i<(aaveHist?.length||0);i++){
@@ -302,7 +333,6 @@
       if (!pts.length) return [];
 
       if (pts.every(pt => !pt.date)) {
-        // synthesize daily spacing ending today
         const n = pts.length;
         for (let i=0;i<n;i++){
           const d = new Date(today);
@@ -314,27 +344,22 @@
                  .sort((a,b)=>a.date - b.date);
       }
 
-      // Collapse same-day duplicates: keep last value per day
       const byDay = new Map();
       for (const pt of pts){
-        const key = pt.date.toISOString().slice(0,10); // YYYY-MM-DD
-        byDay.set(key, pt); // last one wins
+        const key = pt.date.toISOString().slice(0,10);
+        byDay.set(key, pt);
       }
       const dedup = Array.from(byDay.values()).sort((a,b)=>a.date - b.date);
 
-      // Compute rank for each day
-      const series = dedup.map(pt => {
-        // count how many banks have assets strictly greater than Aave TVL
-        let lo = 0, hi = bankAssetsB.length; // binary search (desc array)
+      return dedup.map(pt => {
+        // binary search count of banks > Aave
+        let lo=0, hi=bankAssetsB.length;
         while (lo < hi){
-          const mid = (lo + hi) >> 1;
+          const mid=(lo+hi)>>1;
           if (bankAssetsB[mid] > pt.tvlB) lo = mid + 1; else hi = mid;
         }
-        const above = lo; // number of banks > Aave
-        return { t: pt.date, tvlB: pt.tvlB, rank: above + 1 };
+        return { t: pt.date, tvlB: pt.tvlB, rank: lo + 1 };
       });
-
-      return series;
     }
 
     /* ==== Chart drawing + interactivity ==== */
@@ -348,17 +373,15 @@
       const cssH = canvas.clientHeight || 260;
       const W = Math.max(320, Math.floor(cssW * DPR));
       const H = Math.max(180, Math.floor(cssH * DPR));
-      canvas.width = W;
-      canvas.height = H;
+      canvas.width = W; canvas.height = H;
 
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0,0,W,H);
 
-      const PAD_L = 50, PAD_R = 14, PAD_T = 18, PAD_B = 34;
+      const PAD_L = 50, PAD_R = 14, PAD_T = 14, PAD_B = 30;
       const plotW = W - PAD_L - PAD_R;
       const plotH = H - PAD_T - PAD_B;
 
-      // y domain (ranks): smaller is better -> higher on canvas
       let minR = Infinity, maxR = -Infinity;
       for (const s of series){ if (s.rank < minR) minR = s.rank; if (s.rank > maxR) maxR = s.rank; }
       if (minR === maxR){ minR = Math.max(1, minR-1); maxR = maxR+1; }
@@ -373,15 +396,15 @@
       const grid = getComputedStyle(document.documentElement).getPropertyValue('--grid');
       const line = getComputedStyle(document.documentElement).getPropertyValue('--line');
 
-      // horizontal grid (min/mid/max)
+      // horizontal grid
       ctx.strokeStyle = grid; ctx.lineWidth = Math.max(1, DPR);
       const yMin = y(minR), yMax = y(maxR), yMid = y((minR+maxR)/2);
       ctx.beginPath(); ctx.moveTo(PAD_L, yMin); ctx.lineTo(W-PAD_R, yMin); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(PAD_L, yMid); ctx.lineTo(W-PAD_R, yMid); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(PAD_L, yMax); ctx.lineTo(W-PAD_R, yMax); ctx.stroke();
 
-      // axis labels
-      ctx.fillStyle = 'rgba(255,255,255,.9)';
+      // labels
+      ctx.fillStyle = 'rgba(255,255,255,.95)';
       ctx.font = `${12*DPR}px Arial`;
       ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
       ctx.fillText(`#${Math.round(minR)}`, PAD_L - 8, yMin);
@@ -389,11 +412,11 @@
 
       ctx.textAlign = 'left'; ctx.textBaseline = 'top';
       const fmt = (d)=>d.toLocaleDateString(undefined,{year:'2-digit',month:'short',day:'2-digit'});
-      ctx.fillText(fmt(series[0].t), PAD_L, H - PAD_B + 6*DPR);
+      ctx.fillText(fmt(series[0].t), PAD_L, H - PAD_B + 4*DPR);
       ctx.textAlign = 'right';
-      ctx.fillText(fmt(series[series.length-1].t), W - PAD_R, H - PAD_B + 6*DPR);
+      ctx.fillText(fmt(series[series.length-1].t), W - PAD_R, H - PAD_B + 4*DPR);
 
-      // main line (glow underlay then line)
+      // glow underlay
       ctx.strokeStyle = 'rgba(255,255,255,.35)';
       ctx.lineWidth = Math.max(6, 6*DPR);
       ctx.globalAlpha = .35;
@@ -405,10 +428,10 @@
       ctx.stroke();
       ctx.globalAlpha = 1;
 
+      // main line
       ctx.strokeStyle = line;
       ctx.lineWidth = Math.max(2, 2*DPR);
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       ctx.beginPath();
       for (let i=0;i<series.length;i++){
         const px = x(series[i].t.getTime()), py = y(series[i].rank);
@@ -416,7 +439,6 @@
       }
       ctx.stroke();
 
-      // save scales for hover
       _chartState.series = series;
       _chartState.scales = {PAD_L, PAD_R, PAD_T, PAD_B, W, H, plotW, plotH, t0, t1, minR, maxR, DPR, x, y};
     }
@@ -428,12 +450,9 @@
 
         ix = Math.max(0, Math.min(series.length-1, ix));
         const p = series[ix];
-
-        // screen coords
         const px = scales.x(p.t.getTime());
         const py = scales.y(p.rank);
 
-        // tvl as USD
         const tvlUSD = p.tvlB * 1e9;
         const tvlFmt = `$${tvlUSD.toLocaleString(undefined,{maximumFractionDigits:0})}`;
 
@@ -448,42 +467,33 @@
         tooltip.style.top  = `${py / scales.DPR}px`;
         tooltip.style.display = 'block';
 
-        // redraw with a vertical guide + point marker
+        // highlight
         drawRankChart(canvas, series);
         const ctx = canvas.getContext('2d');
         ctx.save();
-        ctx.strokeStyle = 'rgba(255,255,255,.5)';
+        ctx.strokeStyle = 'rgba(255,255,255,.55)';
         ctx.lineWidth = Math.max(1, 1*scales.DPR);
         ctx.setLineDash([4*scales.DPR, 4*scales.DPR]);
         ctx.beginPath(); ctx.moveTo(px, scales.PAD_T); ctx.lineTo(px, scales.H - scales.PAD_B); ctx.stroke();
         ctx.setLineDash([]);
-
         ctx.fillStyle = '#fff';
         ctx.beginPath(); ctx.arc(px, py, 3.5*scales.DPR, 0, Math.PI*2); ctx.fill();
         ctx.restore();
       }
 
-      function hideTooltip(){
-        tooltip.style.display = 'none';
-        if (_chartState.series?.length) drawRankChart(canvas, _chartState.series);
-      }
-
       function nearestIndexAt(clientX){
         const { series, scales } = _chartState;
         if (!series?.length || !scales) return 0;
-        // convert clientX to canvas x in device pixels
         const rect = canvas.getBoundingClientRect();
         const cx = (clientX - rect.left) * (canvas.width / rect.width);
         const tMouse = scales.t0 + ((cx - scales.PAD_L) / Math.max(1, scales.plotW)) * (scales.t1 - scales.t0);
 
-        // binary search nearest by time
         let lo=0, hi=series.length-1;
         while (lo<hi){
           const mid=(lo+hi)>>1;
           if (series[mid].t.getTime() < tMouse) lo=mid+1; else hi=mid;
         }
         let idx = lo;
-        // check left neighbor for closer
         if (idx>0){
           const d1 = Math.abs(series[idx].t - tMouse);
           const d0 = Math.abs(series[idx-1].t - tMouse);
@@ -492,21 +502,15 @@
         return idx;
       }
 
-      wrapEl.addEventListener('mousemove', (ev)=>{
-        const idx = nearestIndexAt(ev.clientX);
-        showTooltip(idx);
-      });
+      function hideTooltip(){
+        tooltip.style.display = 'none';
+        if (_chartState.series?.length) drawRankChart(canvas, _chartState.series);
+      }
+
+      wrapEl.addEventListener('mousemove', (ev)=> showTooltip(nearestIndexAt(ev.clientX)));
       wrapEl.addEventListener('mouseleave', hideTooltip);
-      wrapEl.addEventListener('touchstart', (ev)=>{
-        if (!ev.touches?.length) return;
-        const idx = nearestIndexAt(ev.touches[0].clientX);
-        showTooltip(idx);
-      }, {passive:true});
-      wrapEl.addEventListener('touchmove', (ev)=>{
-        if (!ev.touches?.length) return;
-        const idx = nearestIndexAt(ev.touches[0].clientX);
-        showTooltip(idx);
-      }, {passive:true});
+      wrapEl.addEventListener('touchstart', (ev)=>{ if (ev.touches?.length) showTooltip(nearestIndexAt(ev.touches[0].clientX)); }, {passive:true});
+      wrapEl.addEventListener('touchmove',  (ev)=>{ if (ev.touches?.length) showTooltip(nearestIndexAt(ev.touches[0].clientX)); }, {passive:true});
       wrapEl.addEventListener('touchend', hideTooltip);
     }
 
@@ -544,14 +548,14 @@
         tr.innerHTML = `
           <td data-label="Rank">${rank}${badge}</td>
           <td data-label="Name">${nameCell}</td>
-          <td data-label="Assets">${formatB(item.assets)}</td>
+          <td data-label="Assets"><span class="assets">${formatB(item.assets)}</span></td>
         `;
         tbody.appendChild(tr);
       }
 
       const msg = $('#msg');
       msg.style.display = 'block';
-      msg.textContent = `Showing Aave (rank ${idx+1}) vs banks • Today only`;
+      msg.textContent = `Showing Aave (rank ${idx+1}) vs banks • Today only (banks=${banks.length})`;
     }
 
     /* ==== Boot ==== */
@@ -559,9 +563,8 @@
       let banksCache = readCache(BANKS_KEY);
       let aaveCache  = readCache(AAVE_KEY);
 
-      // ensure we have data on first load
       if (!banksCache){
-        try { banksCache = { updatedAt: nowISO(), banks: await fetchBanksFast() }; }
+        try { banksCache = { updatedAt: nowISO(), banks: await fetchBanksFull() }; }
         catch { banksCache = { updatedAt: nowISO(), banks: bankFallback }; }
         writeCache(BANKS_KEY, banksCache);
       }
@@ -578,9 +581,7 @@
       const aHist = aaveCache.history || [];
       const aUSD  = latestFromHistoryUSD(aHist) ?? null;
 
-      renderToday(banks, aUSD);
-
-      // Build FULL history rank series + draw
+      // CHART first
       const series = computeRankSeriesFull(banks, aHist);
       const card = $('#rankCard');
       if (series.length){
@@ -589,9 +590,10 @@
       } else {
         card.style.display = 'none';
       }
-
-      // setup hover (once)
       setupHover($('#rankChart'), $('#chartWrap'), $('#tooltip'));
+
+      // Then table
+      renderToday(banks, aUSD);
 
       $('#loading').style.display = 'none';
       $('#dataTable').style.display = 'table';
@@ -608,7 +610,7 @@
     $('#refreshBanks').addEventListener('click', async (e)=>{
       const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Refreshing…';
       try{
-        const banks = await fetchBanksFast();
+        const banks = await fetchBanksFull();
         const stamp = nowISO();
         writeCache(BANKS_KEY, { updatedAt: stamp, banks });
         setBadge('#banksBadge', stamp, 'No banks cache yet');
@@ -616,13 +618,13 @@
         const aHist = (readCache(AAVE_KEY)||{}).history || [];
         const aUSD  = latestFromHistoryUSD(aHist);
 
-        renderToday(banks, aUSD);
-
+        // Update chart first, then table
         const series = computeRankSeriesFull(banks, aHist);
         if (series.length){
           $('#rankCard').style.display = 'block';
           drawRankChart($('#rankChart'), series);
         }
+        renderToday(banks, aUSD);
 
         $('#lastUpdated').textContent = `Last updated: ${new Date(stamp).toLocaleString()} (banks)`;
       }catch(err){
@@ -646,13 +648,13 @@
 
         const banks = (readCache(BANKS_KEY)||{}).banks || bankFallback;
 
-        renderToday(banks, todayUSD);
-
+        // Update chart first, then table
         const series = computeRankSeriesFull(banks, history);
         if (series.length){
           $('#rankCard').style.display = 'block';
           drawRankChart($('#rankChart'), series);
         }
+        renderToday(banks, todayUSD);
 
         $('#lastUpdated').textContent = `Last updated: ${new Date(stamp).toLocaleString()} (aave)`;
       }catch(err){
