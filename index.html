@@ -1,3 +1,6 @@
+Here you go — full file with **Aave = TVL + Borrowed − \$2B** baked in and reflected in the tooltip and footer line.
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -172,22 +175,32 @@
 
     async function fetchJSON(url){ const r = await fetch(url, { cache:'no-store' }); if(!r.ok) throw new Error('bad '+url); return r.json(); }
 
+    // -------- Aave Full Value (Adjusted): TVL + Borrowed − $2B --------
     async function fetchAaveFullValue(){
       try{
         const d = await fetchJSON('https://api.llama.fi/protocol/aave');
         let tvlUsd = Array.isArray(d.tvl) ? latestNumberFrom(d.tvl, ['totalLiquidityUSD','totalLiquidityUsd','tvl']) : null;
         let borrowedUsd = Array.isArray(d.borrowed) ? latestNumberFrom(d.borrowed, ['borrowed','totalBorrowedUSD','totalBorrowedUsd','totalBorrows']) : null;
+
         if ((tvlUsd==null || borrowedUsd==null) && d.chainTvls){
           let tvlSum=0, tF=false, borSum=0, bF=false;
           for(const chain of Object.values(d.chainTvls)){
             const cTVL = latestNumberFrom(chain.tvl, ['tvl','totalLiquidityUSD','totalLiquidityUsd']); if (typeof cTVL==='number'){ tvlSum+=cTVL; tF=true; }
             const cBor = latestNumberFrom(chain.borrowed || chain.borrows, ['borrowed','totalBorrowedUSD','totalBorrowedUsd','totalBorrows']); if (typeof cBor==='number'){ borSum+=cBor; bF=true; }
           }
-          if(tvlUsd==null && tF) tvlUsd = tvlSum; if(borrowedUsd==null && bF) borrowedUsd = borSum;
+          if(tvlUsd==null && tF) tvlUsd = tvlSum;
+          if(borrowedUsd==null && bF) borrowedUsd = borSum;
         }
-        const fullValueB = ((tvlUsd||0)+(borrowedUsd||0))/1e9;
-        return { valueB: fullValueB, meta:{ tvlUsd, borrowedUsd } };
-      }catch(e){ console.error('Aave fetch failed', e); return { valueB: null, meta:{ tvlUsd:null, borrowedUsd:null } }; }
+
+        // Apply custom formula: TVL + Borrowed − $2B
+        const adjustedUsd = (tvlUsd||0) + (borrowedUsd||0) - 2e9;
+        const fullValueB = Math.max(0, adjustedUsd) / 1e9;
+
+        return { valueB: fullValueB, meta:{ tvlUsd, borrowedUsd, adjustmentUsd: -2e9 } };
+      }catch(e){
+        console.error('Aave fetch failed', e);
+        return { valueB: null, meta:{ tvlUsd:null, borrowedUsd:null, adjustmentUsd: -2e9 } };
+      }
     }
 
     async function fetchProtocolTVLBillions(slugs){
@@ -264,7 +277,7 @@
         const rank = entry+1;
         tr.innerHTML = `<td data-label="Rank">${rank}</td>
                         <td data-label="Name">${nameCell(item)}</td>
-                        <td data-label="Assets" title="Banks: Total Assets; Aave: TVL+Borrowed; Others: TVL">${formatAssets(item.assets)}</td>`;
+                        <td data-label="Assets" title="Banks: Total Assets; Aave: TVL+Borrowed−$2B; Others: TVL">${formatAssets(item.assets)}</td>`;
         tableBody.appendChild(tr);
       }
 
@@ -273,7 +286,8 @@
       if (aaveMeta && (aaveMeta.tvlUsd!=null || aaveMeta.borrowedUsd!=null)){
         const tvlB = aaveMeta.tvlUsd!=null ? (aaveMeta.tvlUsd/1e9).toFixed(1) : '—';
         const borB = aaveMeta.borrowedUsd!=null ? (aaveMeta.borrowedUsd/1e9).toFixed(1) : '—';
-        parts.push(`Aave TVL: $${tvlB}B, Borrowed: $${borB}B`);
+        const aaveFinalB = typeof aaveB==='number' ? aaveB.toFixed(1) : '—';
+        parts.push(`Aave: TVL $${tvlB}B + Borrowed $${borB}B − $2.0B = $${aaveFinalB}B`);
       }
       if (typeof morphoB==='number') parts.push(`Morpho TVL: $${morphoB.toFixed(1)}B`);
       if (typeof sparkB==='number') parts.push(`Spark TVL: $${sparkB.toFixed(1)}B`);
@@ -374,3 +388,4 @@
   </script>
 </body>
 </html>
+```
