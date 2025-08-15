@@ -101,7 +101,7 @@
       margin-left:80px;
     }
 
-    /* NEW: rank movement badge (same look as buttons) */
+    /* Rank movement badge (same look as buttons) */
     .rank-badge{
       display:inline-flex; align-items:center; gap:6px;
       background:#fff; color:var(--ink);
@@ -155,9 +155,9 @@
 
     <!-- CHART -->
     <div class="card" id="rankCard" style="display:none; margin-top:8px;">
-      <h3>Aave rank (from 23 Jul 2020)</h3>
+      <h3>Aave rank (from 01 Aug 2020)</h3>
       <div class="chart-wrap" id="chartWrap">
-        <canvas id="rankChart" aria-label="Aave daily rank since 2020-07-23" role="img"></canvas>
+        <canvas id="rankChart" aria-label="Aave daily rank since 2020-08-01" role="img"></canvas>
         <div class="tooltip" id="tooltip"></div>
       </div>
     </div>
@@ -235,10 +235,10 @@
 
   <script>
     /* ==== Keys / constants ==== */
-    const BANKS_KEY = 'banksCacheV8';
-    const AAVE_KEY  = 'aaveHistCacheV7'; // includes borrowed history
+    const BANKS_KEY = 'banksCacheV9';
+    const AAVE_KEY  = 'aaveHistCacheV8'; // includes borrowed history (merged)
     const AAVE_FALLBACK_B = 12.5;
-    const CHART_START = new Date('2020-07-23T00:00:00');
+    const CHART_START = new Date('2020-08-01T00:00:00'); // start chart 01 Aug 2020
 
     const bankFallback = [
       { name: "JPMORGAN CHASE BK NA", assets: 3643.099 },
@@ -339,10 +339,13 @@
       return fetchJSON('https://api.llama.fi/protocol/aave');
     }
 
+    // Always produce a full borrowed series:
+    // - Use top-level proto.borrowed if present
+    // - Also aggregate per-chain borrowed from proto.chainTvls to fill gaps / when top-level is missing
     function buildBorrowedSeries(proto){
       const out = [];
 
-      // 1) direct 'borrowed' array if present
+      // A) direct 'borrowed' array
       if (Array.isArray(proto.borrowed) && proto.borrowed.length){
         for (const p of proto.borrowed){
           const usd = coerceBorrowedUSD(p);
@@ -351,8 +354,8 @@
         }
       }
 
-      // 2) otherwise sum per-chain borrowed[] by date
-      if (!out.length && proto.chainTvls && typeof proto.chainTvls === 'object'){
+      // B) aggregate per-chain borrowed series
+      if (proto.chainTvls && typeof proto.chainTvls === 'object'){
         const map = new Map(); // dateKey -> sumUSD
         for (const ch of Object.keys(proto.chainTvls)){
           const arr = proto.chainTvls[ch]?.borrowed;
@@ -366,11 +369,16 @@
           }
         }
         for (const [k, sum] of map.entries()){
-          out.push({ date: new Date(k), usd: sum });
+          const date = new Date(k);
+          // Only add if not already present for that day
+          if (!out.find(o => o.date.toISOString().slice(0,10) === k)){
+            out.push({ date, usd: sum });
+          }
         }
       }
 
       if (!out.length) return [];
+      // Dedup last-per-day & sort
       const byDay = new Map();
       for (const pt of out){
         const key = pt.date.toISOString().slice(0,10);
@@ -386,7 +394,7 @@
       return { tvl, borrowed };
     }
 
-    /* ==== Rank series (uses TVL, clipped from 2020-07-23) ==== */
+    /* ==== Rank series (uses TVL, from 2020-08-01) ==== */
     // [{ t:Date, tvlB:Number, borrowedB:Number|null, rank:Number }]
     function computeRankSeriesFull(banks, aaveHist, aaveBorrowed){
       const bankAssetsB = [...banks].map(b => b.assets).sort((a,b)=>b-a);
@@ -401,12 +409,12 @@
       }
       if (!pts.length) return [];
 
-      // normalize, sort, filter
+      // normalize, sort, filter start date
       pts = pts.filter(pt => pt.date instanceof Date && !isNaN(+pt.date))
                .sort((a,b)=>a.date - b.date)
                .filter(pt => pt.date >= CHART_START);
 
-      // map of borrowed by day
+      // map of borrowed by day (in B)
       const borrowedMap = new Map();
       for (const p of (aaveBorrowed||[])){
         const d = p.date instanceof Date ? p.date : extractPointDate(p, null);
@@ -622,11 +630,11 @@
         const nameCell = isAave
           ? `<div class="aave-wrap">
                <span class="logo"><img src="aave.svg" alt="Aave logo" style="width:150px;height:72px;vertical-align:middle;"></span>
-               <a class="deposit" href="https://app.aave.com/" target="_blank" rel="noopener noreferrer">💧 Deposit now</a>
+               <a class="deposit" href="https://app.aave.com/" target="_blank" rel="noopener noreferrer">Deposit now</a>
              </div>`
           : item.name;
 
-        // NEW: visible up arrow badge with ranks moved (same background as buttons)
+        // Up arrow badge with ranks moved (white pill)
         const badge = isAave
           ? `<span class="rank-badge" aria-label="moved up ${rankDeltaUp} places since previous day">
                <span class="arrow">↑</span> ${rankDeltaUp}
@@ -659,7 +667,7 @@
       const rank = lo + 1;
       $('#kpiRank').textContent = `#${rank}`;
 
-      // borrowed KPI
+      // borrowed KPI (latest available)
       if (typeof borrowedUSD_latest === 'number'){
         $('#kpiBorrowed').textContent = `$${borrowedUSD_latest.toLocaleString(undefined,{maximumFractionDigits:0})}`;
       }
